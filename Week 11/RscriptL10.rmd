@@ -1,0 +1,85 @@
+# Lecture 10 Prescriptive Analytics I: Linear Optimization
+# Linear Optimization Solver in R
+
+#### Preparation
+load necessary library and packages for the analysis. install any if necessary
+'car' stands for Companion for Applied Regression
+
+```{r load-libraries, echo=TRUE,dependencies = TRUE, warning = FALSE, message = FALSE}
+library(lpSolve)
+library(animation)
+library(ggplot2)
+library(wooldridge)
+```
+
+# lpSolve for Linear Optimization in R
+
+### Example A: Farmer Jean's Problem
+
+Problem Description:  
+Maximize total profit using decision variables X1, X2:     Profit = 0.15 x1 + 0.40 x2  
+Subject to:  
+Budgetary constraints                                      0.20 x1 + 0.70 x2 ≤ 100  
+Land Constraints                                           1 x1 + 1 x2 ≤ 200  
+Non-negativity Constraints                                 x1 ≥ 0; x2 ≥ 0  
+
+```{r example A, echo=TRUE}
+# defining parameters 
+objective_function = c(0.15, 0.40)
+constraint_mat = matrix(c(0.20, 0.70, 1, 1), ncol = 2, byrow = TRUE)
+constraint_dir = c('<=', '<=')
+constraint_rhs = c(100, 200)
+# solving the linear problem
+lp_solution = lp(direction = 'max', objective_function, 
+              constraint_mat, constraint_dir, constraint_rhs,
+              compute.sens = TRUE)
+# display the solution of linear problem: solution stored in 'lp_obj$solution'
+print(lp_solution$solution)
+# display the value of objective function at optimal solution
+print(lp_solution)
+
+# display range of objective coefficients where current solution is valid.
+print(lp_solution$sens.coef.from); print(lp_solution$sens.coef.to);
+range_objcoef = cbind(lp_solution$sens.coef.from, lp_solution$sens.coef.to)
+rownames(range_objcoef) = c('coef x1', 'coef x2')
+colnames(range_objcoef) = c('from', 'to')
+print(range_objcoef)
+# display the shadow prices of constraints in sensitivity analysis
+print(lp_solution$duals)
+```
+
+### Example B: Vegan's Utility Maximization Problem
+
+Problem Description:  
+Maximize utlity choosing x        utility = 250 x1 + 225 x2 + 300 x3  
+Subject to:  
+Budget constraints                7 x1 + 5 x2 + 8 x3 ≤ 60  
+Storage constraints               15 x1 + 30 x2 + 40 x3 ≤ 200  
+Diet constraints                  x1 ≤ 7  
+Non-negativity constraints        x1 ≥ 0; x2 ≥ 0; x3 ≥ 0  
+
+```{r example B, echo=TRUE}
+# first define all parameters
+objective.fn <- c(250, 225, 300)
+const.mat <- matrix(c(7, 5, 8, 15, 30, 40, 1, 0, 0),
+                    ncol=3 , byrow=TRUE)
+const.dir <- c("<=", "<=", "<=")
+const.rhs <- c(60, 200, 7)
+# then solve model
+lp.solution <- lp("max", objective.fn, const.mat,
+                  const.dir, const.rhs, compute.sens=TRUE)
+# optimal solution for consumption profile
+print(lp.solution$solution)
+# objective fn value at optimal solution
+print(lp.solution)
+
+# display range of objective coefficients where current solution is valid.
+print(lp.solution$sens.coef.from); print(lp.solution$sens.coef.to);
+range.objcoef = cbind(lp.solution$sens.coef.from, lp.solution$sens.coef.to)
+rownames(range.objcoef) = c('coef x1', 'coef x2', 'coef x3')
+colnames(range.objcoef) = c('from', 'to')
+print(round(range.objcoef, 1))
+
+## display the shadow prices of constraints in sensitivity analysis
+print(lp.solution$duals)
+```

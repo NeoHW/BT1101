@@ -1,0 +1,147 @@
+---
+title: "Tutorial 10: Linear Optimization"
+author: Neo Haowei, A0264683U
+date: 'Due by November 7, 9:00 AM'
+output: html_document
+---
+
+## Preparation
+
+```{r load-libraries, echo=TRUE, warning = FALSE, message = FALSE}
+# load required packages
+# install any package below if it's first time loaded in your computer.
+library(lpSolve)
+```
+
+## Part Two: Assignment Submission 
+
+### Question 2 (Total 20 points)
+
+As an analyst, you're working for a small camera manufacturer, which produces three types of cameras: compact, SLR (short for single-lens reflex) and luxury high-end camera. Camera production mainly involves machine and labor works, in terms of machine and labor hours, respectively. For manufacture's daily operation, you know that:
+
+- Each compact camera brings in an average profit of \$450 but production requires half of an hour on machine and one hour of handcraft.
+- Each SLR camera brings in an average profit of \$950 but production requires two machine hours and two labor hours.
+- Each luxury camera has an average profit of \$2100 but production of high-end camera needs two hours of metalwork and six hours of handcraft. 
+
+For the metal-and-lens work, The manufacturer has two unbreakable German machine which is running 24 hours a day and 7 artisans who are working on 12 hour shift each per day (to simplify, we assume that the work shift arrangement does not matter in determining production plan). The owner would like to know how to maximize their daily profit by deciding their production plan, i.e. how many cameras of each type should be produced daily.
+
+Q2a) Write out the decision variables, objective function and constraints (using the table template provided above). Please include ALL relevant constraints. (4 points)
+
+Maximize total daily profit using decision variables $X_1$, $X_2$, $X_3$ = number of compact, SLR and luxury cameras respectively | Profit = 450$X_1$ + 950$X_2$ + 2100$X_3$
+--- | --- 
+Subject to |  
+Time Constraint for 2 German Machines  | 0.5$X_1$ + 2$X_2$ + 2$X_3$ $\leq$ 48
+Time Constraint for 7 Artisans working 12 hours | 1$X_1$ + 2$X_2$ + 6$X_3$ $\leq$ 84
+Non-Negativity Constraint for compact camera | $X_1$ + $\quad$ + $\quad$ $\geq$ 0
+Non-Negativity Constraint for SLR camera | $\quad$ + $X_2$ + $\quad$ $\geq$ 0
+Non-Negativity Constraint for luxury high-end camera | $\quad$ + $\quad$ + $X_3$ $\geq$ 0
+
+<p style="color:darkred">**Type here your answer here.**</p>
+
+
+(Q2b) Program and run code in R to solve your formulated linear problem above, using `lpSolve` in R. Is there any feasible solution and if yes, what is the optimal production plan to maximize workshop's daily profit? What is the daily profit at the optimal production plan? (4 points)
+
+```{r q2b-lp, echo=TRUE}
+# defining parameters 
+objective.fn = c(450, 950, 2100)
+const.mat = matrix(c(0.5, 2, 2,
+                     1, 2, 6), ncol = 3, byrow = TRUE)
+const.dir = c(rep('<=', 2))
+const.rhs = c(48,84)
+# solving the linear problem
+lp_solution = lp(direction = 'max', objective.fn, 
+              const.mat, const.dir, const.rhs,
+              compute.sens = TRUE)
+print(lp_solution$solution)
+print(lp_solution)
+```
+
+
+<p style="color:darkred">
+Yes, there is a feasible solution.  
+The optimal production plan to maximize workshop's daily profit is $X_1$ = 72, $X_2$ = 6, $X_3$ = 0. That is, produce 72 compact cameras, 6 SLR cameras and 0 luxury, high-end cameras. The maximum daily profit is $38100.
+</p>
+
+(Q2c) For some "what if" questions (4 points):
+
+- What would the the range of profit margin of luxury camera such that it is optimal to produce it? (1 point)
+- Given the fact that SLR market is shrinking, at what range of profit margin for SLR camera so that it is optimal for manufacturer to stop producing it?^[https://www.cined.com/dslr-mirrorless-camera-market-shrinking-rapidly/] (1 point)
+- Given the fact that the constraining resources for further production expansion are machine hour and labor hour (as you may guess they are quite costly to procure: precision machining and experienced artisans), what would be the break-even procurement prices for one additional machine hour and labor hour, respectively? (2 points)
+
+``` {r q2c, echo=TRUE}
+
+# display range of objective coefficients where current solution is valid.
+range.objcoef = cbind(lp_solution$sens.coef.from, lp_solution$sens.coef.to)
+rownames(range.objcoef) = c('coef x1', 'coef x2', 'coef x3')
+colnames(range.objcoef) = c('from', 'to')
+print(round(range.objcoef, 1))
+
+# to check shadow values
+lp_solution$duals
+
+```
+
+
+<p style="color:darkred">
+The profit margin of luxury camera should be strictly greater than \$2650 (2650,$\infty$) such that it is optimal to product it.  
+<br>
+If profit margin of SLR camera is strictly lower than \$900(-$\infty$,900), it is optimal for manufacturers to stop producing it.  
+<br>
+The break-even procurement price for one additional machine hour is \$50. The break-even procurement price occurs when the procurement price equals the shadow price of machine hour constraint.  
+The break-even procurement price for one additional labor hour is \$425. The break-even procurement price occurs when the procurement price equals the shadow price of labor hour constraint.  
+</p>
+
+(Q2d) From the lecture you know that the shadow prices are the *internal prices* for the constrained resources, here in this case the machine and labor hours for the camera manufacturing. Let's now try to understand better how shadow prices are formed and why they are called `duals` in `lpSolve`. Now consider a related but separate linear optimization problem below:
+
+Consider that manufacture owner does not actually own the machine and labor capacities but need to rent them in the market by paying a pair of resource prices $(y_1, y_2)$ for machine and labor hours, respectively. She fixed a plan to rent two machine and seven artisans to produce compact, SLR and luxury cameras same as before. Instead of making decision on production plan, she need to *decide* the prices $y_1$ and $y_2$ to pay for the resources she planned as to minimize daily renting cost, i.e. $48 y_1 + 84 y_2$. However, the constraints she faces now are imposed by the resource suppliers who ask that the marginal cost of producing each camera must be as least as its profit margin (why?).^[To see this, think about the fact that the shop owner does not own the input materials, i.e. the machine and labor and needs to acquire them from the machine and labor supplier. The suppliers are rather smart: if the offered resource price $(y_1, y_2)$ are too low, taking compact camera for example, $\frac{1}{2}y_1 + y_2 < 450$, the suppliers could organize the causal watch production themselves and earn \$450 per camera (similar to other two types of cameras). Why should the supplier lease the machine and labor to the shop owner? This fact naturally impose the lower bound to the resource price offer $(y_1,y_2)$ from the shop owner when she is trying to rent the input materials.]. For example, for compact camera, $\frac{1}{2}y_1 + y_2 \ge 450$ (production of each camera requires half an hour on machine and one hour of handcraft, marginal cost to produce one camera is thus $\frac{1}{2}y_1 + y_2$).  
+
+- Write out the decision variables, objective function and linear constraints of this minimization problem as what you did in (3a). Don't forget to include non-negativity constraints. (3 point)
+
+Minimize total daily renting cost using decision variables $y_1$, $y_2$ = Price of machine and labor hour respectively | Cost = 48$y_1$ + 84$y_2$
+--- | --- 
+Subject to |  
+Constraint where marginal cost of production of compact camera at least profit margin | $\frac{1}{2}y_1 + y_2 \ge 450$
+Constraint where marginal cost of production of SLR camera at least profit margin | $2y_1 + 2y_2 \ge 950$
+Constraint where marginal cost of production of luxury camera at least profit margin | $2y_1 + 6y_2 \ge 2100$
+Non-Negativity Constraint for price of machine hour | $y_1$ + $\quad$ $\geq$ 0
+Non-Negativity Constraint for price of labor hour | $\quad$ + $y_2$ $\geq$ 0
+
+
+- Code it into R and solve it. What is the optimal solution for this minimization problem? What is the value of objective function, i.e. daily renting cost at the optimal solution? What are the shadow prices to this problem? Compared above quantities in this cost minimization problem with profit maximization problem before, what do you find? (4 point)
+
+```{r q2d-lp, echo=TRUE}
+# defining parameters 
+objective.fn = c(48,84)
+const.mat = matrix(c(0.5, 1,
+                     2, 2,
+                     2, 6), ncol = 2, byrow = TRUE)
+const.dir = c(rep('>=', 3))
+const.rhs = c(450,950,2100)
+# solving the linear problem
+lp_solution = lp(direction = 'min', objective.fn, 
+              const.mat, const.dir, const.rhs,
+              compute.sens = TRUE)
+print(lp_solution$solution)
+print(lp_solution)
+
+# to check shadow values
+lp_solution$duals
+```
+
+<p style="color:darkred">
+The optimal production for this minimization problem is $y_1$ = 50, $y_2$ = 425. That is, rental cost of a machine hour daily is \$50 and rental cost of labor hour daily is \$425.  
+The optimal/minimum daily price solution to pay for resource is \$38100.  
+<br>
+Shadow price of compact camera profit constraint is $72.  
+Shadow price of SLR camera profit constraint is $6.  
+Shadow price of luxury camera profit constraint is $0.  
+Non-Negativity Constraint for price of machine hour and Non-Negativity Constraint for price of labor hour are non-binding. Therefore, the shadow prices are $0.  
+<br>
+Comparing the above quantities in this cost minimization problem with profit maximization problem before:  
+Optimal solution for the cost minimization problem is equal to shadow price of the constraints in the profit maximization problem.  
+Meanwhile, Shadow price of the constraints in the cost minimization problem is equal to the optimal solution in the profit maximization problem.  
+In both the cost minimization problem and the profit maximization problem, the value of the objective function is the same.
+</p>
+
+
+Q2(e) Successfully debug and knitting the RMD to HTML for submission. (1 point)

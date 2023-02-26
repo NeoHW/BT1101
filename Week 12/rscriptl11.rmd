@@ -1,0 +1,136 @@
+# Lecture 11 Prescriptive Analytics II: Integer Optimization #
+# Linear Optimization Solver in R #
+
+#### Preparation
+load necessary library and packages for the analysis. install any if necessary
+```{r load-libraries, echo=TRUE,dependencies = TRUE, warning = FALSE, message = FALSE}
+library(lpSolve)
+library(animation)
+library(ggplot2)
+library(wooldridge)
+```
+
+# lpSolve for Integer Optimization in R
+
+### Example Revisited: Vegan's Diet Problem (with Integer Constraints)
+
+Problem Description:
+Maximize utlity choosing x :          utility = 250 x1 + 225 x2 + 300 x3  
+Subject to:  
+Budget constraints:                7x1 + 5x2 + 8x3 ≤ 60  
+Storage constraints:               15x1 + 30x2 + 40x3 ≤ 200  
+Diet constraints:                  x1 ≤ 7  
+Non-negativity constraints:        x1 ≥ 0; x2 ≥ 0; x3 ≥ 0  
+Integer constraints:               x1, x2, and x3 are integers  
+
+
+```{r example Vegans Diet problem, echo=TRUE}
+# first define all parameters
+objective.fn = c(250, 225, 300)
+const.mat = matrix(c(7, 5, 8, 15, 30, 40, 1, 0, 0),
+                    ncol=3 , byrow=TRUE)
+const.dir = c("<=", "<=", "<=")
+const.rhs = c(60, 200, 7)
+# then solve model
+lp.solution = lp("max", objective.fn, const.mat, int.vec = c(1,2,3),
+                  const.dir, const.rhs, compute.sens=FALSE)
+# optimal solution for consumption profile
+print(lp.solution$solution)
+# objective fn value at optimal solution
+print(lp.solution)
+
+```
+
+Note that integer constraint changes the optimal solution dramatically. 
+kale becomes optimal to consume in the optimal solution.
+
+
+### Example A: Factory Metal Cutting Problem
+
+Problem Description:
+Miinimize total scraps choosing x :          utility = 5 x1 + 5 x2 + 8 x3 + 2 x4 + 11 x5 + 11 x6
+
+
+
+
+```{r example A, echo=TRUE}
+# define parameters
+objective.fn = c(5, 5, 8, 2, 11, 11)
+const.mat = matrix(c(0, 0, 1, 9, 2, 7,
+                      7, 1, 0, 0, 1, 1,
+                      0, 3, 3, 0, 2, 0) , ncol=6 , byrow=TRUE)
+const.dir = c(">=", ">=", ">=")
+const.rhs = c(500, 715, 630)
+# solve linear program with integer constraint
+lp.solution = lp("min", objective.fn, const.mat,
+                  const.dir, const.rhs, int.vec = c(1,2,3,4,5,6))
+# optimal solution
+print(lp.solution$solution)
+# objective fn value at optimal solution
+print(lp.solution)
+```
+
+
+### Example B: Location of Distribution Centers
+
+```{r example B, echo=TRUE}
+# define parameters
+
+# it can be tricky to code in all the parameters. 
+# remember two things: 
+# 1. All decision variables need to show up in the constraint matrix columns (24 of them) and in one and consistent order.
+# 2. One row in constraint matrix is one constraint (in total 26 of them). 
+const.mat <- matrix(c( # constraints 1-5: Assign each client to one center
+  rep(c(1,0,0,0,0), 4), rep(0,4),
+  rep(c(0,1,0,0,0), 4), rep(0,4),
+  rep(c(0,0,1,0,0), 4), rep(0,4),
+  rep(c(0,0,0,1,0), 4), rep(0,4),
+  rep(c(0,0,0,0,1), 4), rep(0,4),
+  # constraint 6: Budget
+  rep(c(0,0,0,0,0), 4), rep(1,4),
+  # constraints 7-26: Serviced by open center
+  rep(0,0), -1, rep(0,19), rep(0, 0), 1, rep(0, 3),
+  rep(0,1), -1, rep(0,18), rep(0, 0), 1, rep(0, 3),
+  rep(0,2), -1, rep(0,17), rep(0, 0), 1, rep(0, 3),
+  rep(0,3), -1, rep(0,16), rep(0, 0), 1, rep(0, 3),
+  rep(0,4), -1, rep(0,15), rep(0, 0), 1, rep(0, 3),
+  rep(0,5), -1, rep(0,14), rep(0, 1), 1, rep(0, 2),
+  rep(0,6), -1, rep(0,13), rep(0, 1), 1, rep(0, 2),
+  rep(0,7), -1, rep(0,12), rep(0, 1), 1, rep(0, 2),
+  rep(0,8), -1, rep(0,11), rep(0, 1), 1, rep(0, 2),
+  rep(0,9), -1, rep(0,10), rep(0, 1), 1, rep(0, 2),
+  rep(0,10), -1, rep(0,9), rep(0, 2), 1, rep(0, 1),
+  rep(0,11), -1, rep(0,8), rep(0, 2), 1, rep(0, 1),
+  rep(0,12), -1, rep(0,7), rep(0, 2), 1, rep(0, 1),
+  rep(0,13), -1, rep(0,6), rep(0, 2), 1, rep(0, 1),
+  rep(0,14), -1, rep(0,5), rep(0, 2), 1, rep(0, 1),
+  rep(0,15), -1, rep(0,4), rep(0, 3), 1, rep(0, 0),
+  rep(0,16), -1, rep(0,3), rep(0, 3), 1, rep(0, 0),
+  rep(0,17), -1, rep(0,2), rep(0, 3), 1, rep(0, 0),
+  rep(0,18), -1, rep(0,1), rep(0, 3), 1, rep(0, 0),
+  rep(0,19), -1, rep(0,0), rep(0, 3), 1, rep(0, 0)
+) , ncol=24 , byrow=TRUE)
+
+# define other parameters
+objective.fn <- c(40, 11, 75, 70, 60,
+                  72, 77, 120, 30, 75,
+                  24, 44, 45, 80, 90,
+                  32, 55, 90, 20, 105,
+                  0, 0, 0, 0)
+
+const.dir <- c(rep(">=",5), "<=", rep(">=", 20))
+const.rhs <- c(rep(1,5), 2, rep(0,20))
+# solve LP
+lp.solution <- lp("min", objective.fn, const.mat,
+                  const.dir, const.rhs, binary.vec = c(1:24))
+# display optimal decision for where to build distribution centers
+lp.solution$solution[21:24]
+# display the optimal assignment for each city
+# for irvine distribution center
+lp.solution$solution[1:5] 
+# for austin distribution center
+lp.solution$solution[16:20]
+# display the minimized total shipping cost at the optimal solution
+lp.solution
+```
+

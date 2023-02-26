@@ -1,0 +1,268 @@
+# Lecture 8 Logistics Regression and Time Series
+# Time-Series Analysis in R
+
+## Preparation
+```{r load-libraries, echo=TRUE}
+library(dplyr) 
+library(tidyr)
+# load necessary library and packages for the analysis
+library(tseries)
+#install.packages('forecast') # install forecast package if first time
+library(forecast)
+#install.packages('lmtest') # install forecast package if first time
+library(lmtest)
+#install.packages('TTR') # install forecast package if first time
+library(TTR)
+#install.packages('ggplot2') # install forecast package if first time
+# I will showcase R's data visualization capability with `ggplot2`
+library(ggplot2)
+library(scales)
+```
+
+Remark: We shall first look at logistic regression with an example of `titanic`.  
+Then we'' play with time-series data with a series of examples. 
+
+## Main Analysis A - Logistic Regression
+
+### Data Cleaning
+```{r Data Cleaning, echo=TRUE}
+# we shall use another dataset about survival of passengers on the Titanic. 
+# 'train.csv' is the raw data and 'titanic.csv' is the one after basic cleaning done below.
+# for logistic analysis, use 'titanic.csv' directly. Data cleaning process is for your reference.
+# read CSV file into data frame and use 'na.string' to make sure that missing value is coded as 'NA'.
+titanic_raw = read.csv('train.csv', header = TRUE, na.string = c(""))
+# change variable names to lower cases.
+names(titanic_raw) = tolower(names(titanic_raw))
+# for illustration purpose, I keep the obs with missing values in 'Age' and replace missing values with median of non-missing ones.
+# WARNINGS: this should not be the practice in real world application. Otherwise, data contamination or plagiarism.
+titanic_raw$age[is.na(titanic_raw$age)] = median(titanic_raw$age,na.rm=TRUE)
+# export the data set after cleaning as CSV file.
+write.csv(titanic_raw, "/Users/haowei/NUS/BT1101/Week 8/titanic.csv", row.names = FALSE)
+
+# QN: does ~ mean current directory?
+```
+
+### Data Input
+``` {r Data Input, echo=TRUE}
+# read 'titanic.csv' file into data frame object 'titanic'.
+titanic = read.csv('titanic.csv', header = TRUE)
+# use 'glm()' with specified parameter 'family = binomial' for logistic regression.
+fit_surv = glm(survived ~ sex + age + sibsp + parch + fare + embarked, family = binomial, data = titanic, control = list(maxit = 50))
+# display the output of logistic regression
+summary(fit_surv)
+# Compute the odds ratio and CI's for each coefficient.
+exp(cbind(OddsRatio = coef(fit_surv), confint(fit_surv)))
+```
+Remarks:
+'control = list(maxit = 50)' is used to increase maximum number of iteration of computation in glm as to make sure algorithm converges.
+Watch out for interpretation of coefficient of logistics regression. Original coeff gives the log-OddsRatio, exp(coeff) then gives you the odds ratio.
+Interpretation of b: Every one unit increase of X results in the log-odds of Pr(Y=1) increase/decrease by b, or equivalently, odds of Pr(Y=1) mutiplied by exp(b).
+A good reference for logistics regression in R: https://web.archive.org/web/20110319043907/http://www.ats.ucla.edu/stat/r/dae/logit.htm.
+
+## Main Analysis B: Linear Regression with Time-Series Data
+
+
+Produce seasonal pattern in time series using souvenir shop at a beach resort town in Queensland, Australia
+http://robjhyndman.com/tsdldata/data/fancy.dat contains monthly sales for 
+a souvenir shop at a beach resort town in Queensland, Australia, 
+for January 1987-December 1993 (original data from Wheelwright and Hyndman, 1998).
+```{r Main Analysis B, echo=TRUE}
+souvenir = scan("http://robjhyndman.com/tsdldata/data/fancy.dat")
+souvenirsale = ts(souvenir, frequency=12, start=c(1987,1))
+write.csv(souvenirsale, "/Users/haowei/NUS/BT1101/Week 8/timesR", row.names = FALSE) # check what's timesR
+
+log_souvenirsale = log(souvenirsale)
+plot.ts(souvenirsale)
+plot.ts(log_souvenirsale)
+```
+
+Load `hseinv` data set from wooldrige (https://cran.r-project.org/web/packages/wooldridge/index.html).
+There are two ways that you can load the data set. You can use read.csv() function to read 'hseinv.csv' file directly if you put the CSV file into your working directory. 
+Here we shall use the second way to load, especially public avaiable data set in to R workspace. Many public available data sets are already packaged, e.g. library(wooldridge). Install the package 'wooldridge' first and load the package.
+
+```{r Load Data hesinv, echo=TRUE}
+# install.packages('wooldridge') # install the package if first time
+library(wooldridge)
+# cross-sectional vs. time series. vs panel
+data('mroz'); data(hseinv); data('jtrain')
+# load the data set as dataframe named 'hseinv'
+data('hseinv')
+# use 'ts()' to convert a normal dataframe object into time series object with specification of frequency (monthly, =12; quarterly, =4; or yearly, =1)
+hseinvts = ts(hseinv, start = c(1947), end = c(1988), frequency = 1)
+```
+
+### OLS Regression for Time Series
+As an example of "spurious regression", run OLS regression of housing investment per capita on housing price index
+Since you still use OLS regression here, specific to time series objects, there is no difference using data.frame or converted ts objective.
+```{r OLS Regression for Time Series, echo=TRUE}
+fit_ip = lm(invpc ~ price, data = hseinv)
+summary(fit_ip)
+# fit OLS regression with additional time trend variable 't'.
+fit_ipt = lm(invpc ~ price + t, data = hseinv)
+summary(fit_ipt)
+
+ts.plot(hseinv$invpc)
+ts.plot(hseinv$price)
+acf(hseinv$invpc)
+acf(hseinv$price)
+```
+
+## Main Analysis C: Smoothing Models for Univariate Time Series
+
+```{r Main Analysis C, echo=TRUE}
+# import and prepare data set 
+# The data set is public data on daily covid cases from "Our World Data" (Github: https://github.com/owid/covid-19-data/tree/master/public/data)
+raw = read.csv(file = 'owid-covid-data.csv', header = TRUE)
+# I'd like to define a `Date` variable as date format with `as.Date()`
+raw$Date = as.Date(raw$date)
+
+# Subsetting two time series data on Singapore and World
+covid_sg = raw %>% subset(location == 'Singapore', select = c(location, Date, new_cases, new_tests, new_deaths, icu_patients, new_vaccinations))
+
+covid_w = raw %>% subset(location == 'World', select = c(location, Date, new_cases, new_tests, new_deaths, icu_patients, new_vaccinations))
+
+## visualize the original time series using `ggplot2`
+ggplot(covid_sg, aes(x=Date, y=new_cases)) + geom_bar(stat="identity", width=0.1) +
+  theme_classic() +
+  labs(title = "Covid-19 Daily New Cases, Singapore", x= "Date", y= "Daily Confirmed New Cases") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_x_date(date_breaks = "months" , date_labels = "%b-%y") +  #library(scales) used for easy date format
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), text = element_text(size = 6), axis.title =element_text(size = 8))
+
+ggplot(covid_w, aes(x=Date, y=new_cases)) + geom_bar(stat="identity", width=0.1) +
+  theme_classic() +
+  labs(title = "Covid-19 Daily New Cases, Global", x= "Date", y= "Daily Confirmed New Cases") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_x_date(date_breaks = "months" , date_labels = "%b-%y") +  #library(scales) used for easy date format
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), text = element_text(size = 6), axis.title =element_text(size = 8))
+
+
+# I could also save the plot as a high quality PDF (since it is vectorized)
+pdf("covid-new-sg.pdf", width=5, height=3)
+mar <- par("mar")
+mar = c(4,4,2,0.5)
+par(mar = mar)
+ggplot(covid_sg, aes(x=Date, y=new_cases)) + geom_bar(stat="identity", width=0.1) +
+  theme_classic() +
+  labs(title = "Covid-19 Daily New Cases, Singapore", x= "Date", y= "Daily Confirmed New Cases") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_x_date(date_breaks = "months" , date_labels = "%b-%y") +  #library(scales) used for easy date format
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), text = element_text(size = 6), axis.title =element_text(size = 8))
+dev.off()
+
+pdf("covid-new-world.pdf", width=5, height=3)
+mar <- par("mar")
+mar = c(4,4,2,0.5)
+par(mar = mar)
+ggplot(covid_w, aes(x=Date, y=new_cases)) + geom_bar(stat="identity", width=0.1) +
+  theme_classic() +
+  labs(title = "Covid-19 Daily New Cases, Global", x= "Date", y= "Daily Confirmed New Cases") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_x_date(date_breaks = "months" , date_labels = "%b-%y") +  #library(scales) used for easy date format
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), text = element_text(size = 6), axis.title =element_text(size = 8))
+dev.off()
+```
+
+### Moving-Average
+```{r Moving-Average, echo=TRUE}
+## Let's first smooth the original time-series with moving averages
+
+# Moving average (MA) with windows of 3 days for SG new cases. 
+# There are many alternatives, but I use `TTR::SMA()` here.
+covid_sg$ma3 = SMA(covid_sg$new_cases, n = 3)
+# remark: note that `ma3_sg` lost first 2 observations when computing the moving averages. For moving averages with K period window, (K-1) obs will be lost.
+
+# Moving average (MA) with windows of 7 days for SG new cases. 
+covid_sg$ma7 = SMA(covid_sg$new_cases, n = 7)
+
+
+ggplot(covid_sg, aes(x=Date, y=new_cases)) + geom_bar(stat="identity", width=0.1) +
+  geom_line(aes(y = ma3, color = "MA3"), linetype = 3, size=0.2) +
+  geom_line(aes(y = ma7, color = "MA7"), linetype = 1, size=0.2) +
+  theme_classic() +
+  labs(title = "Covid-19 Daily New Cases, Singapore", x= "Date", y= "Daily Confirmed New Cases") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_x_date(date_breaks = "months" , date_labels = "%b-%y") +        #library(scales) used for easy date format
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), text = element_text(size = 6), axis.title =element_text(size = 8)) +
+  theme(legend.title = element_text(size=5, face="bold"),  legend.direction = "vertical",
+        legend.position=c(0.2, 0.8), text = element_text(size=5)) +
+  scale_color_manual(name="Legend",values = c("MA3" = "orange", "MA7" = "darkblue")) 
+
+# If we are using `ma3` as the prediction for tomorrow's value based on the moving averages, we simply "shift down" by one row.
+covid_sg$pred_ma3 = lag(covid_sg$ma3, 1)
+
+# remark: since put `ma3` value as prediction for tomorrow's, additional one row was shifted down. First 3 observations become `NA` for `covid_sg$pred_ma3`.
+```
+
+### Exponential Smoothing Models
+```{r Exponential Smoothing Models, echo=TRUE}
+# Now let's smooth the original time-series with exponential smoothing models, i.e. simple exponential, double exponential, and Holt-Winter models. We shall use `HoltWinters()` to do the computations. 
+# `HoltWinters` only takes `ts`, a time-series object, rather than dataframe. Let's first convert our dataframe variable into single `ts` object.
+count_day = seq(as.Date("2020-01-23"), as.Date("2022-02-18"), by = "day")
+# make sure I specified the starting day correctly
+new_cases_sg = ts(covid_sg$new_cases, frequency = 365, start = c(2020, as.numeric(format(count_day[1], "%j"))))
+str(new_cases_sg)
+
+# simple exponential smoothing
+new_cases_exp = HoltWinters(new_cases_sg, beta = FALSE, gamma = FALSE)
+# prediction
+new_cases_exp_pred = predict(new_cases_exp, n.ahead = 21)
+
+# double exponential smoothing, trend-accounted,
+new_cases_double_exp = HoltWinters(new_cases_sg, gamma = FALSE)
+
+# Remark: given the this current covid-sg data, HoltWinters' optimization process failed to converge. An alternative is to use `forecast::ets()`.
+# For additive double exponential smoothing, call `ets(, model = "AAN")`.
+new_cases_double_exp_ets = ets(new_cases_sg, model = "AAN")
+
+# prediction
+new_cases_double_exp_pred = predict(new_cases_double_exp_ets, n.ahead = 21)
+
+df_exps = ts.union(new_cases_sg, new_cases_exp$fitted[,"xhat"], new_cases_double_exp_ets$fitted, dframe=TRUE)
+df_exps = cbind(df_exps, covid_sg$Date, covid_sg$ma7)
+colnames(df_exps) = c("new_cases", "exp", "double_exp","Date","ma7")
+
+# plot the filtered (or smoothed) series with exponential weights
+
+ggplot(df_exps[which(df_exps$Date>"2021-07-01"),], aes(x=Date, y=new_cases)) + geom_bar(stat="identity", width=0.1) +
+  geom_line(aes(y = ma7, color = "Moving Average, K=7"), linetype = 1, size=0.2) +
+  geom_line(aes(y = exp, color = "Exponential"), linetype = 1, size=0.3) +
+  geom_line(aes(y = double_exp, color = "Double Exponential"), linetype = 1, size=0.3) +
+  theme_classic() +
+  labs(title = "Smoothing Models for Covid Cases, Singapore", x= "Date", y= "Daily Confirmed New Cases") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_x_date(date_breaks = "months" , date_labels = "%b-%y") +        #library(scales) used for easy date format
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), text = element_text(size = 8), axis.title =element_text(size = 8)) +
+  theme(legend.title = element_text(size=8, face="bold"),  legend.direction = "vertical",
+        legend.position=c(0.2, 0.8), text = element_text(size=8)) +
+  scale_color_manual(name="Legend",values = c("Moving Average, K=7" = "darkblue", "Exponential" = "magenta", "Double Exponential" = "red")) 
+
+# Remarks: HoltWinters in R uses `decompose()` function to get the initial parameter value to kick start an iteration of optimization to get the estimates for alpha, beta and gamma.
+# `decompose()` requires the number of observations is at least as twice large as the frequency. We define the frequency with `ts` object, e.g., `f=365` for covid example.
+# Note that it is subject to our decision if the original time-series exhibits seasonality. 
+```
+
+## Some other examples:
+```{r Other Examples, echo=TRUE}
+# using R built-in data `AirPassengers`, a predefined ts object already.
+data(AirPassengers)
+ap_hw = HoltWinters(AirPassengers)
+print(ap_hw)
+
+# you could directly plot the original vs. fitted 
+plot(ap_hw)
+
+# `predict()` function can also be directly applied to the fitted model for prediction.
+ap_pred = predict(ap_hw, n.ahead = 24)
+plot(ap_hw, ap_pred)
+
+# using the `souvenir` dataset before. Recall we have defined its `ts` version as `souvenirsale`.
+str(souvenirsale)
+souvenir_hw = HoltWinters(souvenirsale)
+print(souvenir_hw)
+
+souvenir_pred = predict(souvenir_hw, n.ahead = 12)
+plot(souvenir_hw, souvenir_pred)
+```
+
+

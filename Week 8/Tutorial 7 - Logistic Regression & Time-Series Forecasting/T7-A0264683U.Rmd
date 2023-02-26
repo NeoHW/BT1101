@@ -1,0 +1,294 @@
+---
+title: "Tutorial 7: Logistic Regression and Time Series Forecasting"
+author: 'Haowei'
+date: 'Due by October 17, 9:00 AM'
+output: html_document
+---
+
+## Preparation
+
+```{r load-libraries, echo=FALSE, warning = FALSE, message = FALSE}
+# load required packages
+# install any package below if it's first time loaded in your computer.
+library(dplyr)
+library(tidyr)
+library(tseries) 
+library(TTR) # One alternative for time-series in R
+library(forecast) # An alternative for time series in R
+library(car) # "Companion to Applied Regression" package, for F-test for linear combination of regression coefs
+library(wooldridge) # wooldridge data set will be used in this tutorial
+library(ggplot2) # optional. we expect you to know base graphics, but allow ggplot if you find it easier
+```
+
+
+## Part Two: Assignment Submission (25 points)
+
+### Question 3 (total 17 points)
+
+We will study fertility rates with two time-series datasets on U.S. and Singapore, respectively. 
+
+High fertility rate is essential for long-term growth in any economy. Many countries are troubled with low or even negative fertility rate. For example, the fertility rate in Singapore in general shows a decreasing trend in recent decades (https://www.channelnewsasia.com/news/singapore/number-of-babies-born-in-singapore-falls-to-lowest-in-8-years-11743722). Fertility is affected by many socio-economic factors, including single rate, family disposable income, level of tax duty, war attrition, contraception technology, etc. 
+
+Let's first take a look at the fertility rate in the United States in 20th century. `fertil3` data contains information about woman's fertility rate and personal tax exemption in U.S. in early-mid 1900s. 
+
+- Dataset required: `data('fertil3')` in `wooldridge` package.
+
+(Note: This dataset comes from a publicly available dataset from Jeffery Wooldridge Textbook. See data description in https://rdrr.io/cran/wooldridge/man/fertil3.html)
+
+First, load in the time series data for this question. There are 72 observations on 24 variables about women fertility rate between year 1913 and 1984. Key variables are listed below:
+
+- `gfr`: births per 1000 women between age 15 and 44.
+- `pe`: real value personal tax exemption in US dollars.
+- `pe_1`: 1-period lag of `pe`, real value personal tax exemption in US dollars from last year.
+- `pe_2`: 2-period lag of `pe`, real value personal tax exemption in US dollars from two years ago.
+- `ww2`: a binary variable = 1 during World War 2 between 1941 and 1945.
+- `pill`: a binary variable = 1 from 1963 on when the birth control pill was made available for contraception.
+
+```{r q3-read-dataset, echo=TRUE}
+# read dataset into workplace, note that you need library(wooldridge) to load this data set
+data('fertil3')
+# if you want, is can be converted to ts object
+fertil = ts(fertil3, frequency = 1, start = 1913)
+
+```
+
+Q3(a) Start off by plotting `gfr` (fertility rate) and `pe_1` (personal tax exemption from last year) against time in the same plot. What do you observe from the time series plots alone: do you see any trend or seasonality? Do you think that `gfr` time series is stationary? (2 points)
+
+Remark: You should be able to visualize data with R base graphics at least. Other alternative R graphic packages such as `ggplot` are welcomed additions.
+
+```{r q3a-plot, echo=TRUE}
+ggplot(fertil3,aes(x=year))+
+  ylab("Value") +
+  geom_line(aes(y=gfr,colour='gfr'))+
+  geom_line(aes(y=pe_1,colour='pe_1'))+
+  scale_colour_manual(name='Legend',values = c('gfr'='red','pe_1'='blue'))+
+  theme_bw()
+
+# plot.ts(fertil[,'gfr'])
+# plot.ts(fertil[,'pe'])
+# ts.plot(fertil[,'gfr'], fertil[,'pe'], 
+         #gpars = list(xlab = 'Year', ylab = 'Value', col = c('darkred','darkblue')))
+# legend("topright", legend = c('gfr', 'pe'), col = c('darkred','darkblue'), lty = 1)
+
+adf.test(fertil[,"gfr"])
+
+```
+
+<p style="color:red">
+Both `gfr` and `pe` exhibit long-term trend. Between 1913 and 1938, gfr had a decreasing trend while pe had a increasing trend and from 1938 on, gfr and pe moved in the same direction with pe being more volatile. 
+`gfr` has a nonlinear trend and shows sign of autocorrelation, thus likely non-stationary.  
+Using Augmented Dickey-Fuller Test for unit-root of `gfr` : The large p-value of ADF test shows little evidence that we can reject the null hypothesis, i.e. there exists a unit root for time series `gfr`.
+</p>
+
+
+Q3(b) Many labor economists believe that fertility rate is affected by the economic policy such as personal tax exemption, e.g., `pe` and their lag terms. Run a linear regression of `gfr` on `pe`, `pe_1`, and `pe_2`. Interpret the coefficient before `pe`. Is it statistically significant? What's your conclusion about whether tax exemption improves fertility rate, from the regression output? (3 points)
+
+```{r q3b, echo=TRUE}
+fit_1 <- lm(gfr ~ pe + pe_1 + pe_2, fertil3)
+summary(fit_1)
+
+```
+
+<p style="color:red">
+Coefficient of `pe` = -0.01584. Every unit increase of real value personal tax exemption in US dollars decreases the births per 1000 women between age 15 and 44 by 0.01584, on average, given all other predictors constant.  
+However, the p-value=0.910 > 0.05, thus we do not have sufficient evidence to reject the null hypothesis that the coefficient is 0. Therefore, the coefficient is statistically insignificant at the 5% level of confidence.  
+From the regression output, it seems that tax exemption does not improve fertility rate as there is no relationship between fertility rate and tax exemption.
+</p>
+
+
+Q3(c) Now, include a time trend variable `t` into the regression model in part (b). Interpret the coefficients for `pe_2` and `t`. What's been changed in the regression result compared to previous one, in terms of coefficients (its sign and magnitude), goodness-of-fit R-square and F-test of the linear regression model? Which model do you think we should choose, and why? (4 points)
+
+```{r q3c, echo=TRUE}
+fit_2 <- lm(gfr ~ pe + pe_1 + pe_2 + t, fertil3)
+summary(fit_2)
+
+```
+
+<p style="color:red">
+Coefficient of `pe_2` = 0.309055. Every unit increase of real value personal tax exemption in US dollars two years ago increases the births per 1000 women between age 15 and 44 by 0.309055,on average, given all other predictors constant.  
+The p-value=0.000948 is very small,(< 0.05), thus we have sufficient evidence to reject the null hypothesis that the intercept is 0 and conclude that the slope parameter is statistically significant at the 5% level of confidence.  
+<br>
+Coefficient of `t` = -1.068292. This means that holding all other constant, as a long-term trend, the births per 1000 women between age 15 and 44 decreases by 1.068292 on average.
+The p-value=2.6e-15 is very small,(< 0.05), thus we have sufficient evidence to reject the null hypothesis that the intercept is 0 and conclude that the slope parameter is statistically significant at the 5% level of confidence.  
+<br>
+From the regression output, we can see both slope parameters of `pe_2` and time trend variable `t` are statistically significant from zero while slope of `pe_2` was insignificant in the previous simple linear model without time trend variable `t`.  
+The sign of coefficient of `pe_2` is not only reversed but its magnitude increases from 0.05390 to 0.309055. In addition, R square (goodness-of-fit) increases from 0.006135 to 0.6229 with inclusion of time trend variable t. The model becomes statistically significant due to large F-statistic in F-test.  
+<br>
+Since both `gfr` and `pe_2` shows long-term trend and thus non-stationary. Adding a time trend variable t in the linear regression model helps to de-trend these two time series and deal with non-stationary issue. Between these two models, the one with trend variable t is preferred: increasing personal tax exemption might likely improves fertility rate.
+</p>
+
+
+As we have discussed fertility rate in U.S. between 1913 and 1984 in previous question, now let's turn our attention to fertility rate in Singapore in modern times, where the fertility rate plummets to lowest figure in 2020 in history. 
+
+- Dataset required: `SGfertil20.csv`
+
+Note: This dataset comes from publicly available data from the Singapore Department of Statistics, or SingStat. https://www.singstat.gov.sg/find-data/search-by-theme/population/births-and-fertility/latest-data. You can download the data yourself and explore. For homework, I have done some data cleaning as to have only one time series variable ,`gfr`, in `sgfertil.csv` which contains information on fertility rate of childbearing age women between age 15 and 44 in Singapore comparable to that in U.S. 
+
+```{r q3-fertil-data-input, echo=TRUE}
+# read raw data from 'sgfertil.csv'
+sgfertil = read.csv(file = 'SGfertil20.csv', header= TRUE)
+colnames(sgfertil)[1]='Data.Series'
+
+sgfertil = sgfertil %>% 
+  # given our focus in univariate time-series analysis on total fertility rate..
+  select(Data.Series, Total.Fertility.Rate..Per.Female.) %>%
+  # rename
+  rename(year = Data.Series, gfr = Total.Fertility.Rate..Per.Female.) %>%
+  # sort the data bt ascending on year
+  arrange(year)
+# extract the key time series of our interest and convert it to ts obj
+gfrsg_ts = ts(sgfertil$gfr, start = 1960, end = 2020, frequency = 1)
+```
+`sgfertil` contains yearly data about gross fertility rate per thousand women between 1960 and 2020. A quick description of the data:
+
+Obs:  61
+- `gfr`: total fertility rate of women in their childbearing age between 15 and 44, #births per thousand
+- `year`: as described.
+
+Q3(d) First plot the `gfrsg` against time. Draw the time series plot of `gfrsg`. Describe what you observe from the plot: do you see any trend or/and seasonality? Do you think total fertility rate time series in Singapore `gfrsg` stationary? (2 points)
+
+```{r q3d, echo=TRUE}
+plot.ts(gfrsg_ts, col = 'darkred')
+
+```
+<p style="color:red">
+Total fertility rate in Singapore clearly shows a decreasing long-term trend. There seems to be no obvious seasonality in the time series data of `gfrsg`. With the decreasing trend, `gfrsg` is unlikely to be stationary.
+</p>
+
+
+Q3(e) In order to predict future fertility rate using information contained in the time series of `gfrsg` itself, let's make forecast by simply fitting a moving average series. First, compute the moving averages with window length of 4 years and plot both the original and moving average series in the same graph. Second, obtain the moving average prediction series. What is the MA predicted value for Year 2021? (3 points)
+
+```{r q3e, echo=TRUE}
+# Take note n is 4 here because each year is one unit, compared to Lab7 where each time period was 1/4 of a year
+sgfertil$SMA4 = TTR::SMA(sgfertil$gfr, n=4)
+
+
+ggplot(sgfertil,aes(x=year))+
+  geom_line(aes(y=gfr,colour='gfr'))+
+  geom_line(aes(y=SMA4,colour='SMA4'))+
+  scale_colour_manual(name='Legend',values = c('gfr'='red','SMA4'='blue'))+
+  theme_bw()
+
+# Obtaining moving average prediction Series using window length of 4 years
+# Window4 = 1/4 (Yt + Yt−1 + Yt-2 + Yt−3)
+
+sgfertil$SMA4_predict = dplyr::lag(sgfertil$SMA4,1) # moving average prediction series
+sgfertil$SMA4_predict
+# MA Predicted value for Year 2021
+sgfertil %>% filter(year == 2020) %>% select(SMA4)
+```
+
+<p style="color:red">
+The MA predicted value for Year 2021 is 1.135.  
+</p>
+
+
+Q3(f) Based on your observation in part (d), predict the fertility rates for Year 2021 and Year 2024 with Holt-Winter model of your choice. (3 points)
+
+```{r q3f, echo=TRUE}
+
+hw1 = HoltWinters(gfrsg_ts, gamma = FALSE)
+hw1
+
+# prediction model
+hw1_pred <- predict(hw1, n.ahead = 4)
+
+# Predicting fertility rates for Year 2021 using indexing
+hw1_pred[1]
+
+# Predicting fertility rates for Year 2024 using indexing
+hw1_pred[4]
+```
+
+<p style="color:red">
+The predicted fertility rate for Year 2021 is 1.08067.  
+The predicted fertility rate for Year 2024 is 1.022681.  
+</p>
+
+
+### Question 4 (Total 8 points)
+
+- Dataset required: `data('recid')`
+
+Recidivism rate in Singapore is 24% in 2016 (https://data.gov.sg/dataset/recidivism-rate). Criminals tend to relapse into criminal offense after the release from the prison. Recidivism is costly and causes serious social and economical problem. It is not only wasteful with the resources invested in prison, including staffing, infrastructure investment, daily operation cost, and economic opportunity cost for both prisoners and staffs (i.e., labor values that could be generated elsewhere other than being locked up and guarding in prison, respectively), but also harms the community for the second time due to crime re-commitment. Recidivism is thus a critical evaluating metric for prison performance, e.g., rehabilitation or training program. `recid.csv` contains 1445 observations of recidivism cases in United States where it currently has the largest prison population in the world (about one out every five peope imprisoned in the world is incarcerated in the United States).
+
+```{r q4-data-input, echo=TRUE}
+recid = read.csv(file = 'recid.csv', header= TRUE)
+```
+
+C.-F. Chung, P. Schmidt, and A.D. Witte (1991), “Survival Analysis: A Survey,” Journal of Quantitative Criminology 7, 59-98.
+Data Source: https://www.cengage.com/cgi-wadsworth/course_products_wp.pl?fid=M20b&product_isbn_issn=9781111531041. A quick description of the data:
+
+Obs:  1445
+
+  1. black                    =1 if black
+  2. alcohol                  =1 if alcohol problems
+  3. drugs                    =1 if drug history
+  4. super                    =1 if release supervised
+  5. married                  =1 if married when incarc.
+  6. felon                    =1 if felony sentence
+  7. workprg                  =1 if in N.C. pris. work prg.
+  8. property                 =1 if property crime
+  9. person                   =1 if crime against person
+ 10. priors                   # prior convictions
+ 11. educ                     years of schooling
+ 12. rules                    # rules violations in prison
+ 13. age                      in months
+ 14. tserved                  time served, rounded to months
+ 15. follow                   length follow period, months
+ 16. durat                    max(time until return, follow) in month
+ 17. cens                     =1 if duration right censored
+ 18. ldurat                   log(durat)
+
+Q4(a) Criminal offense lawyers usually fight for supervised release of the offender. Given five variables in `recid` data set: `super`, `rules`, `age`, `tserved`, `married`, `priors` and `black`, how could you help the law firm to predict the outcome of a recent case given that a 55-year-old married black client has been serving the jail time for 5 years and 11 months with no prior conviction and during which broken no rule in the prison? 
+In order to evaluate the likelihood to answer such question. First of all, write down the regression model you propose to use. Clearly define or label your variables.  (2 point)
+
+```{r q4a, echo=TRUE}
+
+# Proposed regression model
+# Use GLM with Binomial Family as dependent variable is categorical (Binary dependent variable)
+fit_supervisedRelease <- glm(super ~ rules+age+tserved+married+priors+black, family = binomial ,data=recid)
+
+```
+
+<p style="color:red">
+For this question, we are interested in predicting the outcome of a binary dependent variable (i.e., Released Supervised or Not Released Supervised). Hence, we can conduct a logistic regression. Our logistic regression model is: logit(p) = log (p/(1-p)) = b0 + b1`rules` + b2`age` + b3`tserved` + b4`married` + b5`priors` + b6`black`, where p is the probability of an offender being released supervised.  
+<b> NOTE: for Log regression, it is BETA not b </b>
+</p>
+
+
+Q4(b) Run your regression model in R and interpret the coefficients before `priors` and `black`. Based on the results, do you think there was any racial discrimination in terms of likelihood of supervised release, and why? (3 point)
+
+```{r q4b, echo=TRUE}
+summary(fit_supervisedRelease)
+```
+
+<p style="color:red">
+Coefficient of `priors` = -0.0943194. For every unit increase in number of prior convictions, the log-odds for supervised release of the offender decreases by 0.0943194 given all other predictors constant.  
+Moreover, The p-value=7.14e-05(< 0.05), thus we can reject the null hypothesis that this slope parameter is = 0, i.e., the coefficient is significantly different from zero.  
+<br>
+Coefficient of `black` = 0.1114900. If the offender is black, the log-odds for supervised release of the offender increases by 0.1114900 given all other predictors constant.   
+However, p-value=0.352001(> 0.05), we cannot reject the null hypothesis that this slope parameter is = 0, i.e., the coefficient is not significantly different from zero.  
+<br>
+According to the model, there was no racial discrimination in terms of likelihood of supervised release as from the regression output, it seems that there is no relationship between being black and the likelihood of supervised release.
+(Since the two-sided z-test for marginal effect for black fails to reject its null. There is no evidence for racial discrimination regarding the chance for supervised release.)
+</p>
+
+
+Q4(c) Finally, what is the predicted probability for supervised release for the new client? (2 point)
+
+```{r q4c, echo=TRUE}
+newClient = data.frame(rules = 0, age = 55*12, tserved = 71, married = 1, priors = 0, black = 1)
+# Evaluating likelihood
+# use type = 'response'
+predict(fit_supervisedRelease, newdata = newClient, type = 'response')
+```
+
+<p style="color:red">
+The predicted probability for supervised release of a 55-year-old married black client has been serving the jail time for 5 years and 11 months with no prior conviction and during which broken no rule in the prison is 0.9616305.
+</p>
+
+
+Q4(d) Successfully debug the Rmarkdown file and produce an HTML for submission. (1 point)
+
+

@@ -1,0 +1,222 @@
+---
+title: 'Tutorial 8: Data Mining Basics'
+author: "Haowei, A0264683U"
+date: "Due by October 24, 9:00 AM"
+output: html_document
+---
+
+
+```{r load-libraries, echo=TRUE, warning = FALSE, message = FALSE}
+# load required packages
+library(dplyr)
+library(tidyr)
+library(car) # for linearHypothesis()
+library(ggplot2) # optional. we expect you to know base graphics, but allow ggplot if you find it easier
+library(psych) # for pairs.panels()
+library(factoextra) # for fviz_cluster()
+library(wooldridge)
+library(caret)
+```
+
+## Part Two: Assignment Submission 
+
+### Question 2 (Total 20 points)
+
+- Dataset required: `gpa2` (wooldridge)
+
+The dataset for this question is available at: https://rdrr.io/cran/wooldridge/man/gpa2.html, a public available dataset about class performance for the first fall semester in college, containing 4137 observations on 12 variables. Again, you need to install and load package `wooldridge` to conveniently load the data into your R workplace. 
+
+```{r q2-dataloading, echo=TRUE}
+data('gpa2')
+```
+
+Here are the variables in the dataset:
+
+- `sat`: combined SAT score
+- `tothrs`: total studying hours through fall semest
+- `colgpa`: GPA after fall semester, in a 4.0 scale
+- `athlete`: =1 if athlete
+- `verbmath`: verbal/math SAT score
+- `hsize`: size grad. class in high school, 100s
+- `hsrank`: rank in grad. class in high school
+- `hsperc`: high school percentile, from top
+- `female`: =1 if female
+- `white`: =1 if white
+- `black`: =1 if black
+- `hsizesq`: hsize^2
+
+For the purpose of illustration, I create a new variable `scholarship` (granted scholarship after the first semester) which is equal to one if student's class performance belongs to upper 20% of class comparable to his/her peers (curved) based on the GPA after the fall semester, i.e. `colgpa` is greater than 80th-quantile of `colgpa`, This would be a binary dependent variable we shall use in prediction and classification.
+
+In this question, we will be interested in using the independent variables (student's academic performance in SAT and high school) to classify and predict whether student will be granted scholarship or not after their first semester. 
+
+Here is a brief data description for all independent variables (using the `pairs.panels()` function from the `psych` package)
+
+```{r q2-read-in-dataset, echo=TRUE, fig.width=10}
+# create a binary variable 'pass',
+gpa2$scholarship = ifelse(gpa2$colgpa > quantile(gpa2$colgpa, 0.8), 1, 0)
+# Selecting out the independent variables "X" included in our analysis.
+gpa2X <- gpa2 %>% select(-c("colgpa", "scholarship"))
+psych::pairs.panels(gpa2X, lm=TRUE)
+```
+
+Q2(a) Using the entire data set `gpa2`, let's first start with the  "kitchen sink" regression model `colgpa ~ . - colgpa - scholarship`, i.e. we include all independent variables on the RHS of the regression.
+
+ - using `linearHypothesis()` to jointly test if first semester's GPA is affected by the size of graduating class in high school, i.e. `hsize = hsizesq = 0`. Draw your conclusion for the test; (2 points)
+ - run an automated backward model selection using `step()` function and interpret the coefficient of `tothrs`. Do you expect the sign of the coefficient before `tothrs`? (3 points)
+ - run an automated forward model selection and report the selected model. Does the forward model selection agree with the backward selection? (2 points)
+
+```{r q2a, echo=TRUE}
+fit_full = lm(colgpa ~ . - scholarship, data = gpa2)
+# Using 'linearHypothesis()'
+linearHypothesis(model = fit_full, c("hsize = 0", "hsizesq = 0"))
+
+# Using Automated Backwards Model
+step_back = step(fit_full, direction = 'backward')
+summary(step_back)
+
+# Using Automated Forwards Model
+fit_intercept = lm(colgpa ~ 1, gpa2)
+step_forward = step(fit_intercept, scope = ~ sat + tothrs + athlete + verbmath + hsize + hsrank + hsperc + female + white + black + hsizesq, direction = 'forward')
+summary(step_forward)
+```
+
+<p style="color:darkred">
+Part i- linear hypothesis:    
+The p-value of F-test is 0.1365 (>0.05), we do not have sufficient evidence to reject the null hypothesis.  
+i.e. H0: unrestricted model (with `hsize` and `hsizesq`) is not significantly better than restricted model (without `hsize` and `hsizesq`) in terms of its explanatory power.  
+Therefore, including `hsize` and `hsizesq` does not improves the explanatory power of the model to predict our dependent var `colgpa`.  
+We are unable to conclude that first semester's GPA is affected by the size of graduating class in high school
+From the F-test outputs, these two are not equivalent, yielding a F-statistic = 1.9927.    
+<br>
+Part ii- Automated Backwards Model Selection:  
+Backward "step()"s final selected model is `colgpa ~ sat + tothrs + athlete + hsrank + hsperc + female + black + hsizesq`.
+Coefficient of `tothrs` is 0.0017305.  
+Every unit increase of total studying hours through fall semester increases first semester's GPA by 0.0017305, on average, given all other predictors constant.  
+Yes, I expected the sign of the coefficient before `tothrs` as I feel that a higher effort put in by individuals in revision would lead to better overall grades.  
+<br>
+Part iii- Automated Forward Model Selection:  
+Forward "step()"s final selected model is `colgpa ~ hsperc + sat + female + tothrs + black + hsrank + athlete + hsizesq`.  
+Forward "step()"s final selected model agrees with backward AIC-based 'step()' selection.
+</p>
+
+
+Q2(b) From the correlation matrix at the very beginning, we can see that some of the independent variables are correlated with each other. Let's try to summarize the data using principal component analysis (PCA). Use the `prcomp` function to conduct a PCA to summarize the information from the independent variables. (1 point)
+
+- How many top PC's we should retain if we'd like to have our PC's represent more than 90% of variation in the data? (1 points)
+- Extract the those PCs and pass them to `gpa2`. We'll be using them as predictors later. (1 point)
+
+Hint: Note that PCA only works well with *continuous* numeric variables.
+
+```{r q2b, echo=TRUE}
+str(gpa2)
+gpa2 = na.omit(gpa2)
+# excluding our resp
+# running a principal component analysis (PCA) using 'prcomp()' function
+# 'formula = ~ . -colgpa' in 'prcomp' helps us to removes our response variable 'wage' from the data to compute PCs.
+# in addition, athlete, female, white, black, scholarship are binary variables (categorical). Conventional PCA is not recommended for data including categorical variables. 
+pca_gpa2 = prcomp(formula = ~ . -colgpa -athlete -female -white -black -scholarship, data = gpa2, center = TRUE, scale = TRUE)
+# display the output of PCA on 'colgpa'
+summary(pca_gpa2)
+# Extract top 5 PCs and pass them to `gpa2`.
+gpa2$pc1 = pca_gpa2$x[,"PC1"]
+gpa2$pc2 = pca_gpa2$x[,"PC2"]
+gpa2$pc3 = pca_gpa2$x[,"PC3"]
+gpa2$pc4 = pca_gpa2$x[,"PC4"]
+gpa2$pc5 = pca_gpa2$x[,"PC5"]
+
+# or by extracting using a loop
+#for (k in c(1:5)) {
+#  gpa2[ , paste0("pc", k)] = gpa2_pca$x[,k]
+#}
+
+```
+
+
+<p style="color:darkred">
+We should retain top 5 PCs if we'd like to have our PC's represent more than 90% of variation in the data.  
+</p>
+
+
+Q2(c) On the entire data `gpa2`, use a logistic classifier for `scholarship` with the top the five principal components. Which coefficients are statistically significant? (2 points)
+Using your trained logit classifier with those five PCs, call `predict(<glm_object>, type='response')` to ask the model to predict the probability of getting a scholarship after the first semester in college. Let's make our rule to define the *predicted value* of `scholarship`: one if the predicted probability is >=0.50; zero if <0.50. Pass the binary predictions to a variable named `pred_scholarship` in `gpa2`. How many "Yes" (positives) and "No" (negatives) predictions did the model make? (3 points)
+
+```{r q2c, echo=TRUE}
+# General linear model 
+pcafit = glm(scholarship ~ pc1 + pc2 + pc3 + pc4 + pc5, data = gpa2, family = binomial)
+summary(pcafit)
+
+# Predict
+# predict(pcafit, type = 'response')
+gpa2$`pred_scholarship` = ifelse((predict(pcafit, type = 'response')) >= 0.5, 1,0)
+
+# Counting number of positive and negative predictions
+gpa2 %>% count(pred_scholarship == 1)
+```
+
+<p style="color:darkred">
+Coefficients of `pc1`, `pc2`, `pc3` and `pc4` are statistically significant as their p-values are <0.05, which suggests that there is sufficient evidence to reject the null hypothesis that the coefficients of `pc1`, `pc2`, `pc3` and `pc4`are statistically zero. The p-value for `pc5` is 0.21848 > 0.05, which suggests that there is insufficient evidence to reject the null hypothesis that the coefficient of `pc5` is statistically zero.
+
+<br>
+Number of positive predictions: 376  
+Number of negative predictions: 3761
+</p>
+
+
+
+Q2(d) Finally, let's manually construct a classification matrix using `table()` function in base R rather than `caret::confusionMatrix()` to evaluate our logistic classifier.
+
+Use `table(x1, x2)` with both your model's "Scholarship" predictions and the actual observed `scholarship` values (ignoring that we actually created `scholarship` at the first place). I recommend using the same convention in the lecture slides, where we have observed values on the columns and model prediction on the rows. *We say "granted a scholarship" as a positive event.* (4 points)
+
+- How many True Positives are there?
+- How many True Negatives are there?
+- How many False Positives are there?
+- How many False Negatives are there?
+
+- What is the model's overall classification accuracy?
+- What is the model's sensitivity?
+- What is the model's precision?
+- What is the model's specificity?
+
+Note: show the formula how you computed each quantity above.
+
+```{r q2d, echo=TRUE}
+# Using confusionMatrix()
+#gpa2$pred_scholarship = factor(gpa2$pred_scholarship, labels = c('No Scholarship', 'Scholarship'))
+#gpa2$scholarship = factor(gpa2$scholarship, labels = c('No Scholarship', 'Scholarship'))
+#cm = confusionMatrix(gpa2$pred_scholarship, gpa2$scholarship, positive = 'Scholarship')
+#print(cm)
+
+# Using table
+gpa2$pred_scholarship = factor(gpa2$pred_scholarship, labels = c('No Scholarship', 'Scholarship'))
+gpa2$scholarship = factor(gpa2$scholarship, labels = c('No Scholarship', 'Scholarship'))
+table(gpa2$pred_scholarship,gpa2$scholarship)
+
+TP = 251
+TN = 3199
+FP = 125
+FN = 562
+
+# Calculation for accuracy
+(TP+TN)/(TP+FN+FP+TN)
+# Calculation for sensitivity
+TP/(TP+FN)
+# Calculation for precision
+TP/(TP+FP)
+# Calculation for specificity
+TN/(FP+TN)
+```
+
+
+<p style="color:darkred">
+There are 251 True Positives.  
+There are 3199 True Negatives.  
+There are 125 False Positives.  
+There are 562 False Negatives.  
+<br>
+The model's overall classification accuracy is 0.8339376.  
+The model's sensitivity is 0.3087331.   
+The model's precision is 0.6675532.  
+The model's specificity is 0.9623947.  
+</p>
+
+Q2(e) Successfully debug and produce an HTML for submission. (1 point)

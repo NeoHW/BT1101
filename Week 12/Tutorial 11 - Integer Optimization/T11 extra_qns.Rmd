@@ -1,0 +1,174 @@
+---
+title: "BT1101-Tutorial 11"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+## Submission Instructions
+
+No submission required for this tutorial
+
+## Tutorial 11: Integer Optimization
+
+```{r load-libraries, echo=TRUE}
+# intall required packages if you have not (suggested packages: rcompanion, rstatix, Rmisc, dplyr, tidyr, rpivotTable, knitr, psych)
+# install.packages("dplyr") #only need to run this code once to install the package
+# load required packages 
+# library("xxxx")
+library(dplyr)
+library(lpSolve)
+```
+
+
+Please use the following table template for any question you feel it is useful, which comes from the Parsnips and Kale example in lecture. This table should exist OUTSIDE any `r` code chunks in order to format properly (since it's markdown and not R). Here, we use a pair of '\$'s to enter/exit math mode (this is LaTeX, for those of you who are familiar), which allows us to type symbols like $X_1$, $\leq$ for the "less than or equals" sign and $\geq$ for the "greater than or equals" sign. Use $\,$ (thin space), $\;$ (medium space), $\quad$ (large space, equivalent to curent font size), $\qquad$ (two large spaces) for spacing, so you can leave a blank for decision variables with coefficients of 0. 
+(Note: don't put two \$'s next to each other. Always put a space in between.). 
+
+Maximize total profit using decision variables $X_1$, $X_2$ | Profit = 0.15 $X_1$ + 0.40 $X_2$
+--- | --- 
+Subject to |  
+Budget Constraint | 0.20$X_1$ + 0.70$X_2$ $\leq$ 100
+Space Constraint | $X_1$ + $X_2$ $\leq$ 200
+Non-Negativity Constraint 1 | $X_1$ + $\quad$ $\geq$ 0
+Non-Negativity Constraint 2 | $\quad$ + $X_2$ $\geq$ 0
+
+You may also refer to: https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet#tables for additional information regarding table formatting. From the professor's experience, it takes a while to get used to making tables in Markdown, and even minor changes may break the table. The most common mistakes are: 
+
+- not having a blank line before and a blank line after each table, 
+- not having the correct number of \|'s, 
+- not ending Math mode correctly, and 
+- putting two \$s next to each other. 
+
+
+### Additional Qn
+
+Natalie has decided to switch her career to data science, as she feels it has more prospects than her previous industry. She is eyeing a "pico-masters" program at her local university, where she has to complete 40 units of courses to satisfy the pico-degree. ("Pico-masters" and "nano-masters" are fictional--at least, for now---but some online education platforms and universities like edX are offering "MicroMasters<sup>&reg;</sup>" and other similar products.)
+
+The program offers the following courses, in **ST**atistics, **P**ro**G**ramming, and **D**ata **M**anagement, along with their associated costs and pre-requisites. The pre-requisites for each course must be fulfilled before students are allowed to take that course. Natalie has also indicated her personal interest in each course.
+
+
+Course | Units | Pre-requisites | Cost | Interest
+--- | --- | --- | --- | ---
+ST1 | 10 | - | \$1000 | 8 
+ST2 | 10 | ST1 | \$1500 | 4 
+ST3 | 10 | ST2 | \$2000 | 6 
+PG1 | 10 | - | \$1000 | 7 
+PG2a | 10 | PG1 | \$1500 | 5 
+PG2b | 10 | PG1 | \$1500 | 6
+PG3 | 10 | PG2a *or* PG2b | \$2000 | 3 
+DM1 | 10 | - | \$1000 | 4
+DM2 | 10 | DM1 | \$1500 | 6
+DM3 | 10 | DM2 | \$2000 | 7
+
+
+
+Q2a) How would you write out the following constraint as a linear constraint?
+
+Students must take ST1 before ST2
+
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+
+<p style="color:blue">
+If we define $X_1$ to be taking ST1 and $X_2$ to be taking ST2(both binary variables), then the constraint can be written as $X_1$ $\geq$ $X_2$. Alternatively, $X_1$ - $X_2$ $\geq$ 0
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+
+Q2b) Imagine that her only goal is to minimize cost and satisfy the requirements of the degree. 
+
+- Identify the decision variables, objective function, and the relevant constraints. 
+- Write them out in a table. 
+
+You may keep the "Pre-requisite" constraints in the form $X_X \pm X_Y \leq = \geq 0$ for this table. Do not solve the problem yet. (Also, syntax hint, use $X_{10}$ if you need to subscript more than 1 character.)
+
+Minimize cost using decision variables $X_1$, $X_2$, $X_3$, $X_4$, $X_5$, $X_6$, $X_7$, $X_8$, $X_9$, $X_10$| Costs= 1000$X_1$ + 1500$X_2$ + 2000$X_3$ + 1000$X_4$ + 1500$X_5$ + 1500$X_6$ + 2000$X_7$ + 1000$X_8$ + 1500$X_9$ +  2000$X_{10}$
+--- | --- 
+Subject to |  
+Minimum course requirements | 10$X_1$ + 10$X_2$ + 10$X_3$ + 10$X_4$ + 10$X_5$ + 10$X_6$ + 10$X_7$ + 10$X_8$ + 10$X_9$ +  10$X_{10}$ $\geq$ 40
+Prerequisites for ST2 | $X_1$ - $X_2$ $\geq$ 0
+Prerequisites for ST3 | $X_2$ - $X_3$ $\geq$ 0
+Prerequisites for PG2a | $X_4$ - $X_5$ $\geq$ 0
+Prerequisites for PG2b | $X_4$ - $X_6$ $\geq$ 0
+Prerequisites for PG3| ($X_5$+$X_6$) - $X_7$ $\geq$ 0
+Prerequisites for DM2 | $X_8$ - $X_9$ $\geq$ 0
+Prerequisites for DM3 | $X_9$ - $X_{10}$ $\geq$ 0
+Binary, Integer, Non-Negativity Constraints | $X_1$ to $X_{10}$ all binary, integers and $\geq$ 0
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+
+<p style="color:blue"> 
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+
+Q2c) Natalie just read a condition she missed out earlier. In order to finish the PicoMasters, she needs to finish a specialization in one of the three tracks, which is fulfilled by completing the "Level 3" version of that course.
+
+How will you specify this as a linear constraint?
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+
+<p style="color:blue">
+If we define $X_3$ to be taking ST3, $X_7$ to be taking PG3 and $X_{10}$ to be taking DM3, then the linear constraint can be written as $X_3$ + $X_7$ + $X_{10}$ $\geq$ 1
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+
+Q2d) Ok, Natalie admitted that "cost minimization" should be a lesser priority to "interest maximization". Rewrite the problem to maximize her interest. Note that since cost is still a factor for her, she decides to take EXACTLY 40 units, no more than that.
+
+- Write out the table again, including the new constraint from (c) and the changes in the preceding paragraph.
+- If you are not confident of going straight from this table to R, please take the additional step of converting the linear constraints into a "fully spelled-out" constraint with all the $0$s, $1$s and $-1$s such as: <br> $X_X - X_Z \geq 0$ $\implies$ $1X_X + 0X_Y + -1 X_Z + 0 X_A + \ldots \geq 0$ )
+- Using R, write a linear program to solve Natalie's problem. 
+
+
+Which courses should she pick?
+
+Maximize interest using decision variables $X_1$, $X_2$, $X_3$, $X_4$, $X_5$, $X_6$, $X_7$, $X_8$, $X_9$, $X_10$| Interest= 8$X_1$ + 4$X_2$ + 6$X_3$ + 7$X_4$ + 5$X_5$ + 6$X_6$ + 3$X_7$ + 4$X_8$ + 6$X_9$ + 7$X_{10}$
+--- | --- 
+Subject to |  
+Minimum course requirements | 10$X_1$ + 10$X_2$ + 10$X_3$ + 10$X_4$ + 10$X_5$ + 10$X_6$ + 10$X_7$ + 10$X_8$ + 10$X_9$ +  10$X_{10}$ = 40
+Prerequisites for ST2 | $X_1$ - $X_2$ $\geq$ 0
+Prerequisites for ST3 | $X_2$ - $X_3$ $\geq$ 0
+Prerequisites for PG2a | $X_4$ - $X_5$ $\geq$ 0
+Prerequisites for PG2b | $X_4$ - $X_6$ $\geq$ 0
+Prerequisites for PG3| ($X_5$+$X_6$) - $X_7$ $\geq$ 0
+Prerequisites for DM2 | $X_8$ - $X_9$ $\geq$ 0
+Prerequisites for DM3 | $X_9$ - $X_{10}$ $\geq$ 0
+Complete Specialization | $X_3$ + $X_7$ + $X_{10}$ $\geq$ 1
+Binary, Integer, Non-Negativity Constraints | $X_1$ to $X_{10}$ all binary, integers and $\geq$ 0
+
+```{r q2d,echo=T}
+objective.fn <- c(8,4,6,7,5,6,3,4,6,7)
+const.mat <- matrix(c(rep(10,10),
+                      1,-1,0,0,0,0,0,0,0,0,
+                      0,1,-1,0,0,0,0,0,0,0,
+                      0,0,0,1,-1,0,0,0,0,0,
+                      0,0,0,1,0,-1,0,0,0,0,
+                      0,0,0,0,1,1,-1,0,0,0,
+                      0,0,0,0,0,0,0,1,-1,0,
+                      0,0,0,0,0,0,0,0,1,-1,
+                      0,0,1,0,0,0,1,0,0,1),
+                      ncol = 10,byrow = T)
+const.dir <- c('=',rep('>=',8))
+const.rhs <- c(40,rep(0,7),1)
+lp.solution <- lp('max',objective.fn,const.mat,const.dir,const.rhs, binary.vec = c(1:10))
+lp.solution$solution
+lp.solution
+
+
+```
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+
+
+<p style="color:blue">
+Based on the results, Natalie should take ST1,ST2,ST3 and PG1 to maximise her interest.
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+
+
+

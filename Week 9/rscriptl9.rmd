@@ -1,0 +1,246 @@
+# Lecture 9 Predictive Analytics: Data Mining
+# Basic Data Mining Techniques in R
+
+#### Preparation
+load necessary library and packages for the analysis. install any if necessary
+'car' stands for Companion for Applied Regression
+```{r load-libraries, echo=TRUE,dependencies = TRUE, warning = FALSE, message = FALSE}
+library(car) 
+#library(rms) # error here
+library(leaps)
+library(psych)
+library(pca3d)
+library(animation)
+library(factoextra)
+library(caret) # install 'caret' package with 'dependencies=TRUE' turned on
+```
+
+
+# Model Selection and Data Dimensionality Reduction
+## Model Selection 
+
+### data visualization
+a quick way to show all relationships among variables in a dataset ('iris' data in R). 'pairs.panels()' in 'psych' package.
+```{r data visualization, echo=TRUE}
+data(iris); pairs.panels(iris, lm=TRUE)
+```
+
+### F-test (aka Chow test)
+``` {r F-test, echo= TRUE}
+# load the 'mroz.csv' data we used in L7-linear regression. you could read it directly from shared Dropbox link.
+mroz_raw = read.csv("https://www.dropbox.com/s/xebreyfhym0nkuy/mroz.csv?dl=1", header = TRUE)
+# let's drop some unused variables to include Y and X's that we shall use
+mroz = subset(mroz_raw, select = -c(inlf, kidslt6, kidsge6, repwage,
+                                    hushrs, husage, huseduc, huswage, mtr, 
+                                    motheduc, fatheduc, nwifeinc, lwage))
+
+# define your ``unrestricted'' and ``restricted'' models
+mod_restricted = wage ~           educ + age + faminc + unem + city + exper + expersq
+mod_unrestricted = wage ~ hours + educ + age + faminc + unem + city + exper + expersq
+# you need to fit an OLS regression 
+fit_restricted = lm(mod_restricted, data = mroz)
+fit_unrestricted = lm(mod_unrestricted, data = mroz)
+
+## there are at least two ways in R to conduct the F-test (Chow test) on linear combination of regression coeffs.
+# approach A: use 'anova()' function on two models under comparison
+ftest_hours = anova(fit_restricted, fit_unrestricted)
+print(ftest_hours)
+```
+
+### approach B:
+use 'linearHypothesis()' from 'car' package. first, give the unrestricted model and then specify linear combination of coefs you are testing. Here in this case, a simple one, 'hours = 0'. ('hours' means the slope of 'hours')
+``` {r linearHypothesis, echo= TRUE}
+mod_unrestricted = wage ~ hours + educ + age + faminc + unem + city + exper + expersq
+fit_unrestricted = lm(mod_unrestricted, data = mroz)
+# use 'linearHypothesis()'
+linearHypothesis(model = fit_unrestricted, "hours = 0")
+# observation: 
+# 1. the p-value of F-test is 2.2e-16 which is very samll, suggesting a strong evidence to REJECT the null hypothesis,
+#    i.e. H0: "hours = 0" or equivalently in this case, "unrestricted model (with 'hours') is not significantly better than restricted model (without 'hours') 
+#    in terms of its explanatory power". Therefore, including 'hours' indeed improves the explanatory power of the model to predict our dependent var 'wage'.
+# 2. from the F-test outputs, these two are equivalent, yielding a F-statistic = 85.209
+
+## note that the Chow test can test simultaneously 'hours = 0' AND 'educ = 0'
+linearHypothesis(model = fit_unrestricted, c("hours = 0", "educ = 0"))
+# observation: the small p - value = 2.2e-16 shows strong evidence that we can REJECT the null hypothesis, i.e.
+# "unrestricted model (with 'hours' and 'educ') is not significantly better than restricted model (without 'hours' and 'educ') 
+#  in terms of its explanatory power".
+```
+
+## Stepwise Model Selection
+
+### Backward Stepwise Selection: 
+starting from ``kitchen sink'' model and excluding the ``weakest'' predictor one-by-one until end point reaches.  
+we can use 'drop1()' function to manually exclude predictor with smallest partial F-test statistic start with our ``kitchen-sink'' model, formula 'wage ~ .' means regress 'wage' on everything else in the data set. We shall keep excluding predictors until all p-values in partial F-test is smaller than 0.1 (our end point of selection rule).
+``` {r Backward stepwise selection, echo= TRUE}
+fit_full = lm(wage ~ ., mroz)
+drop1(fit_full, test = 'F')
+# observation: 'unem' has the lowest F-stat = 0.037, drop it. So our ``updated'' model is 'wage ~ . -unem'; use 'update()' function
+drop1(update(fit_full, ~ . -unem), test = 'F')
+# observation: now 'city' has the lowest F-stat = 0.0720, drop it. So our ``updated'' model is 'wage ~ . -unem -city';
+drop1(update(fit_full, ~ . -unem -city), test = 'F')
+# observation: now 'age' has the lowest F-stat, drop it. So our ``updated'' model is 'wage ~ . -unem -city -age';
+drop1(update(fit_full, ~ . -unem -city -age), test = 'F')
+# observation: now 'expersq' has the lowest F-stat, drop it. So our ``updated'' model is 'wage ~ . -unem -city -expersq';
+drop1(update(fit_full, ~ . -unem -city -age -expersq), test = 'F')
+# observation: All predictors have smaller than 0.1 p-values in their partial F-test. DONE. 
+#              Final backward selected model: 'wage ~ hours + educ + faminc + exper'.
+```
+Notes:  
+Drop the variables that affect RSS/AIC the least one by one until the variables left are only the ones that significantly affect RSS.  
+(Done by comparing the least variance between <none> and each variable RSS)
+
+
+
+### Forward Stepwise Selection:
+starting from intercept only and including the ``strongest'' predictor one-by-one until end point reaches.  
+We can use 'add1()' function to manually include predictor with largest partial F-test statistic among potential predictors (searching 'scope()') until all remaining predictors await to be added have p-value all greater than 0.1 in partial F-test (our end point for forward selection)
+``` {r Forward Stepwise Selection, echo= TRUE}
+fit_intercept = lm(wage ~ 1, mroz)
+add1(fit_intercept, scope = ~ hours + age + educ + faminc + unem + city + exper + expersq, test = 'F')
+# observation: 'hours' has the largest F-test statistics = 163.607, add it. Our ``updated'' model is 'wage ~ +hours'; use 'update()' function
+add1(update(fit_intercept, ~ . +hours), scope = ~ hours + age + educ + faminc + unem + city + exper + expersq, test = 'F' )
+# observation: 'educ' has the largest F-test statistics = 76.15, add it. Our ``updated'' model is 'wage ~ +hours +educ'; 
+add1(update(fit_intercept, ~ . +hours +educ), scope = ~ hours + age + educ + faminc + unem + city + exper + expersq, test = 'F' )
+# observation: 'exper' has the largest F-test statistics, add it. Our ``updated'' model is 'wage ~ +hours +educ +exper'; 
+add1(update(fit_intercept, ~ . +hours +educ +exper), scope = ~ hours + age + educ + faminc + unem + city + exper + expersq, test = 'F' )
+# observation: 'faminc' has the largest F-test statistics, add it. Our ``updated'' model is 'wage ~ +hours +educ +exper +faminc'; 
+add1(update(fit_intercept, ~ . +hours +educ +exper +faminc), scope = ~ hours + age + educ + faminc + unem + city + exper + expersq, test = 'F' )
+# observation: Now, all remaining potential predictors to be added have p-values greater than 0.1 in their partial F-tests, which is specified as our end point.
+#              Final forward selected model: 'wage ~ hours + educ + faminc + exper'.
+#              Awesome result: backward and forward selection reaches the same conclusion! Note: this is not always the case.
+```
+
+## Automating Model Selection based on 'AIC' score: using 'step()' function.
+For large data set which typically has over 100 different variables. Manual selection is not only tedious but impossible task for human being.  
+Instead of repeatedly using partial F-test, we can simply select model based on AIC scores (note that OLS also produces AIC score even though we won't cover it in this module)
+
+### automated backward stepwise model selection: select the model with the lowest AIC score
+``` {r automated backward stepwise model selection, echo= TRUE}
+step(fit_full, direction = 'backward')
+# observations:
+# 1. "step('backward')" function in each step excludes the top listed predictor which is ranked by AIC (with RSS, i.e. Sum of Squares of Residuals)
+#    AIC or RSS here means the AIC score and RSS of the model with full (starting) model minus (thus "-" sign) correpsonding predictor. Recall for RSS and AIC, the lower the better.
+# 2. backward "step()"s final selected model is 'wage ~ hours + educ + faminc + exper + expersq', different from our manually selected model (F-test based)
+```
+
+#### automated forward stepwise model selection: select the model with the lowest AIC score
+``` {r automated forward stepwise model selection, echo= TRUE}
+step(fit_intercept, scope = ~ hours + age + educ + faminc + unem + city + exper + expersq, direction = 'forward')
+# # observations:
+# 1. "step('forward')" function in each step includes the top listed predictor (with the lowest AIC) which is ranked by AIC (with RSS, i.e. Sum of Squares of Residuals)
+# 2. forward "step()"s final selected model agrees with backward AIC-based 'step()' selection.
+
+## WARNING: it is your call to choose the final model. Not the machine!
+```
+
+### Data Dimensionality Reduction: Pincipal Component Analysis (PCA)
+Let's keep using 'mroz' data set as our example for PCA, PCA can only work on numeric values. NA, factors, etc, need to be removed.
+``` {r PCA, echo= TRUE}
+str(mroz)
+mroz = na.omit(mroz)
+# excluding our resp
+# running a principal component analysis (PCA) using 'prcomp()' function
+# 'formula = ~ . -wage -city' in 'prcomp' helps us to removes our response variable 'wage' from the data to compute PCs.
+# in addition, 'city' is a binary variable (categorical). conventional PCA is not recommended for data including categorical variables. 
+# there are many factor analysis techniques incorporating categorical variables though they won't be covered in this modules.
+pca_mroz = prcomp(formula = ~ . -wage -city, data = mroz, center = TRUE, scale = TRUE)
+# display the output of PCA on 'mroz'
+summary(pca_mroz)
+# examining the variable loadings for first 3 principal components (PCs) which account for 70% variation in the data.
+print(pca_mroz$rotation)
+# remember that PC is the normalized linear combination of ALL predictors, e.g. PC1 is normalized linear combination of 'hours', ...,'expersq',
+# with the coefficient of each predictor as the first column of 'pca_mroz$rotation':
+pca_mroz$rotation[,1]
+# ``normalized linear combination'' means that sum of squares of those coefficients add up to one, to make sure of this,
+sum(pca_mroz$rotation[,1]^2)
+
+# let's run a linear regression with top 3 PCs
+mroz_pca = mroz
+mroz_pca$pc1 = pca_mroz$x[,"PC1"]
+mroz_pca$pc2 = pca_mroz$x[,"PC2"]
+mroz_pca$pc3 = pca_mroz$x[,"PC3"]
+# run a linear regression of 'wage ~ pc1 + pc2 + pc3'
+pcafit = lm(wage ~ pc1 + pc2 + pc3, mroz_pca)
+summary(pcafit)
+# if you would like to draw the biplot,
+biplot(pca_mroz)
+# if you would like to plot the variance explained by each PC
+plot(pca_mroz, type = 'lines')
+# if you would like to see a fancy 3D plot; for Macusers, you need to install xQuartz from xquartz.org.
+pca3d(pca_mroz, biplot = TRUE, shape = 'tetrahedron', col = 'blue', axes.color = 'white', bg = 'gray', title = 'Biplot for top 3 PC in 3D space')
+# A cool place to visualize the PCA coordinates rotation of the original data set is http://setosa.io/ev/principal-component-analysis/. 
+```
+
+## Clustering and Classification
+### Clustering: k - means (unsupervised)
+
+Use 'kmeans()' function to find k-clusters; note: we need to specifiy the number of clusters 'centers' (our k).  
+``` {r Clustering k-means, echo= TRUE}
+# 'nstart' specifies number of initializations (with starting centeroids randomly placed) of k-means algorithm.
+km_mroz = kmeans(mroz, centers =3, nstart = 10)
+
+# k-means plot using 'fviz_cluster' in 'factoextra' package; (#00AFBB, etc. are color codes used in R)
+fviz_cluster(km_mroz, data = mroz,
+             palette = c("#00AFBB","#2E9FDF", "#FC4E07"),
+             ggtheme = theme_minimal(),
+             main = "Three clusters on the plane of first two PCs of 'mroz'.")
+
+# plot the ``within-cluster sum of squares distance'' as a function of the number of clusters
+wss = rep(NA, 10)
+for (k in c(1:10)){
+  wss[k] = kmeans(mroz, k, nstart = 10)$tot.withinss
+}
+cexs = rep(1, length(wss))
+cexs[3] = 2
+pchs = rep(1, length(wss))
+pchs[3] = 2
+cols = rep('black', length(wss))
+cols[3] = 'red'
+plot(wss, type = 'b', xlab = 'number of clusters, k', ylab = 'within cluster sum of squares distance', col = cols, pch = pchs, cex = cexs)
+# when choosing the ``best'' number of clusters, look for the ``elbow''! In this case, either k = 3 or k = 4.
+```
+
+## how k-means algorithm works? 
+use 'kmeans.ani()' function in package 'animation' package (see https://yihui.org/animation/example/kmeans-ani/ for details)
+``` {r k-means algorithm work, echo= TRUE}
+ani.options(interval = 1)
+kmeans.ani(x = cbind(X1 = runif(50), X2 = runif(50)), centers = 3, 
+           hints = c("centeroids relocated to the centers", "centeroids grasp closest points"), pch = 1:3, col = 1:3)
+```
+
+### Classification: logistic regression (supervised)
+
+let's use our familiar example of 'titanic'.
+``` {r supervised log regression, echo= TRUE}
+# read 'titanic.csv' file into data frame object 'titanic'.
+titanic_raw = read.csv('https://www.dropbox.com/s/s8onwss8jciv3yi/titanic.csv?dl=1', header = TRUE)
+titanic_selected = subset(titanic_raw, select = c("survived", "sex", "age", "sibsp", "parch", "fare", "embarked"))
+titanic = na.omit(titanic_selected)
+# use 'glm()' with specified parameter 'family = binomial' for logistic regression
+fit_surv = glm(survived ~ sex + age + sibsp + parch + fare + embarked, family = binomial, data = titanic, control = list(maxit = 50))
+# display the output of logistic regression
+summary(fit_surv)
+# Compute the odds ratio and CI's for each coefficient.
+exp(cbind(OddsRatio = coef(fit_surv), confint(fit_surv)))
+# now we shall predict the survival probability using out fitted model. note that 'type = response' will compute the probability of survival for us.
+predprob_surv = predict(fit_surv, type = 'response')
+# let's fix our rule for defining ``survival'': survived = 1 when predicted probability >= 0.5, 0 otherwise; create a new variable 'pred_surv' as predicted survival of our cases in the data.
+pred_surv = ifelse(predprob_surv >= 0.5, 1, 0)
+```
+
+## Classification (or Confusion) Matrix
+
+``` {r Classification Matrix, echo= TRUE}
+# a quick look at how many predicted survival agrees with actual observed survival
+sum(pred_surv == titanic$survived)
+# observation: 702 out of 889 successful prediction.
+
+# 'pred_surv' and 'titanic$survived' are still numeric obj, let's convert them to factors.
+pred_surv = factor(pred_surv, labels = c('Not Survived', 'Survived'))
+titanic$survived = factor(titanic$survived, labels = c('Not Survived', 'Survived'))
+# using 'confusionMatrix()' function in R to generate classification or confusion matrix to evaluate our logit classifier.
+cm = confusionMatrix(pred_surv, titanic$survived, positive = 'Survived')
+# display the classification matrix
+print(cm)
+```
