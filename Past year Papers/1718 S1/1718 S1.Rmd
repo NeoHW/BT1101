@@ -1,0 +1,268 @@
+---
+title: "1718 SEM1"
+author: "BT1101 Student. Neo Haowei"
+date: '25 Nov 2021, 1:00 - 3:30 PM'
+output: html_document
+---
+
+## Question List
+### - Q1 : Types of Analysis
+### - Q2 : Z -stat, Critical Values
+### - Q3 : Hypothesis Testing
+### - Q4 : Linear Optimisation
+### - Q5 : Linear Regression
+
+
+## Preparation
+
+```{r preparation, echo=TRUE, warning = FALSE, message = FALSE}
+
+library('libcoin')
+library("rcompanion") #this package is required for transformTukey function
+library("rstatix")
+library("Rmisc") 
+library("dplyr") #need to call the library before you use the package
+library("tidyr")
+library("rpivotTable")
+library("knitr")
+library("psych")
+library(tidyverse)
+library(ggplot2) 
+library(TTR)
+library(factoextra) # for fviz_cluster()
+library(lpSolve)
+
+# predictive/prescriptive analytics
+library(tseries) 
+library(forecast)
+library(lpSolve)
+
+# descriptive analytics
+library(psych)
+library(Rmisc)
+library(rcompanion)
+library(rpivotTable)
+library(EnvStats) 
+library(car)
+library(rstatix)
+
+# general use
+library(dplyr)
+library(tidyr)
+library(knitr)
+```
+
+## Some Formulas:
+<p style="color:blue">
+Mean use T-test, Proportion Z-test  
+test statistic z for proportion: (proportion-probability) / sqrt(probability * (1-probability)/n)  
+test statistic t for comparing means: (new mean-old mean)/(sd/sqrt(n))  
+z critical value: qnorm(0.05) # 5% level of significance, one tailed  
+t critical value: qt(0.975,df=n-1)  
+confidence interval for mean: mean +- `test statistic t` * (sd/sqrt(n)) OR use CI()  
+prediction interval: mean +- `test statistic t` * (sd * sqrt(1+(1/n))  
+confidence interval for proportions: p +- `test statistic z`  * (sqrt(p*(1-p)/n)) 
+</p>
+
+
+## Question 1
+Example 1:  
+Type of Analytic: Predictive Analytics  
+Data/Metrics Used: Number of customers on specific days (e.g. 11/11), clickthrough rate, timestamps  
+Customer Value: Customers will have a smooth shopping experience and not experience any lags/freezes on the store app or website due to large traffic numbers on special days like 11/11 or black friday. By using past data to predict the number of customers on these special days, the store can improve their performance when there is high traffic.  
+<br>
+Example 2:  
+Type of Analytic: Predictive Analytics  
+Data/Metrics Used: Customers page viewing history, items they click on, items that they put in shopping cart, items that they buy  
+Customer Value: Customers will have their own personalised recommendations which are based on their past browsing and purchase history. Using algorithms to learn and recommend suitable products to customers will improve each customer's experience as the recommended products are tailored for them.
+
+
+## Question 2a (Z -stat, Critical Values)
+``` {r q2a CI, echo=T}
+z_stat = (215-200)/10
+z_stat
+qnorm(0.05)
+qnorm(0.95)
+```
+### Check Answer
+215 is only 1.5 SD (using z-stat) above the mean.  
+From our results z-statistic=1.5 (is not <-1.644854 or >1.644854), the z-statistic is lying in the non-rejection region. Thus we have insufficient evidence to reject H0 and we accept that 215 is representative.
+
+## Question 2b
+No. Covariance and Correlation does not measure the same thing.  
+Covariance is the measure of the linear association between the two variables, X and Y.  
+Correlation, on the other hand, measures both strength and linear relationship between two variables.
+
+
+## Question 3a
+H0: mean response for Value for the Dollar is the same for the different types of cell phones.   
+H1: mean response for Value for the Dollar for at least 1 type of cell phones is different from the others.  
+
+## Question 3b
+P-value for df1$Type is 0.0535(>0.05). Thus, we have insufficient evidence to reject H0 at the 5% level of significance. We conclude that there is no true difference between the mean response for Value for the Dollar across the different types of cell phones at the 5% level of significance.
+
+## Question 3c
+``` {r q3c, echo=T}
+uCIage95t <- 3.231 - qt(0.025, df=52-1)*0.9623375/sqrt(52) # df = number of sample values - number of estimate parameters
+lCIage95t <- 3.231 + qt(0.025, df=52-1)*0.9623375/sqrt(52)
+print(cbind(lCIage95t, uCIage95t), digits=3)
+```
+
+The 95% confidence interval for customer service is [2.96,3.5].  
+
+## Question 3d
+H0 : mean customer service rating from males = mean customer service rating from females  
+H1 : mean customer service rating from males =/= mean customer service rating from females  
+Two-sample test for means with independent samples -> hence we use a t-test.  
+To draw conclusions based on the results, we will need to look at the p-value.  
+If p-value <0.05, we will have sufficient evidence to reject H0 in favour of H1. We can accept that the mean customer service rating from males is not the same as mean customer service rating from females at the 5% level of significance.  
+However, if p-value >0.05, we will have insufficient evidence to reject H0 in favour of H1. We then accept that the mean customer service rating from males is the same as mean customer service rating from females at the 5% level of significance.  
+
+
+## Question 4a
+### Need to split time constraints into 2 parts!
+
+Maximize revenue using decision variables $X_1$, $X_2$  = Tons of Regular Grain and Tons of Fine Grain respectively | Revenue = 900 $X_1$ + 2000 $X_2$
+--- | --- 
+Subject to |  
+Regular Grain Demand Constraint | $X_1$ + $\quad$ $\geq$ 400
+Fine Grain Demand Constraint | $\quad$ + $X_2$ $\geq$ 200
+Space Constraint | $X_1$ + $X_2$ $\geq$ 800
+Time Constraint for regular grains| 1/5$X_1$ + $X_2$ $\leq$ 168
+Time Constraint for fine grains | $X_1$ + 1/3$X_2$ $\leq$ 168
+Non-Negativity Constraint 1 | $X_1$ + $\quad$ $\geq$ 0
+Non-Negativity Constraint 2 | $\quad$ + $X_2$ $\geq$ 0
+
+```{r q4a-lp, echo=TRUE}
+
+# defining parameters 
+objective.fn = c(900,2000)
+const.mat = matrix(c(1,0,
+                     0,1,
+                     1,1,
+                     1/5,0,
+                     0,1/3), ncol = 2, byrow = TRUE)
+const.dir = c(rep('>=', 3), rep('<=',2))
+const.rhs = c(400,200,800,168,168)
+
+# solving the linear problem
+lp.solution = lp(direction = 'max', objective.fn, 
+              const.mat, const.dir, const.rhs,
+              compute.sens = TRUE)
+print(lp.solution$solution)
+print(lp.solution)
+
+#4b
+lp.solution$duals 
+
+#4c
+range.objcoef = cbind(lp.solution$sens.coef.from, lp.solution$sens.coef.to)
+rownames(range.objcoef) = c('coef x1', 'coef x2')
+colnames(range.objcoef) = c('from', 'to')
+print(round(range.objcoef, 1))
+```
+
+## Question 4b
+Based on the values, when minimum amount of sugar canes can to be processed every week is increased, there will be no impact on the revenue.  
+
+## Question 4c
+
+```{r q4c-lp, echo=TRUE}
+
+# defining parameters 
+objective.fn = c(1100,2000)
+const.mat = matrix(c(1,0,
+                     0,1,
+                     1,1,
+                     1/5,0,
+                     0,1/3), ncol = 2, byrow = TRUE)
+const.dir = c(rep('>=', 3), rep('<=',2))
+const.rhs = c(400,200,800,168,168)
+
+# solving the linear problem
+lp.solution = lp(direction = 'max', objective.fn, 
+              const.mat, const.dir, const.rhs,
+              compute.sens = TRUE)
+print(lp.solution$solution)
+print(lp.solution)
+
+#4b
+lp.solution$duals 
+
+#4c
+range.objcoef = cbind(lp.solution$sens.coef.from, lp.solution$sens.coef.to)
+rownames(range.objcoef) = c('coef x1', 'coef x2')
+colnames(range.objcoef) = c('from', 'to')
+print(round(range.objcoef, 1))
+```
+The only change in the model would be the total revenue earned(increased from 1764000 to 1932000), revenue earned by the sale of regular grains and the shadow value of regular grains(4500 to 5500).  
+
+## Question 4d
+```{r q4d-lp, echo=TRUE}
+
+# defining parameters 
+objective.fn = c(900,1400)
+const.mat = matrix(c(1,0,
+                     0,1,
+                     1,1,
+                     1/5,0,
+                     0,1/3), ncol = 2, byrow = TRUE)
+const.dir = c(rep('>=', 3), rep('<=',2))
+const.rhs = c(400,200,800,168,168)
+
+# solving the linear problem
+lp.solution = lp(direction = 'max', objective.fn, 
+              const.mat, const.dir, const.rhs,
+              compute.sens = TRUE)
+print(lp.solution$solution)
+print(lp.solution)
+
+#4b
+lp.solution$duals 
+
+#4c
+range.objcoef = cbind(lp.solution$sens.coef.from, lp.solution$sens.coef.to)
+rownames(range.objcoef) = c('coef x1', 'coef x2')
+colnames(range.objcoef) = c('from', 'to')
+print(round(range.objcoef, 1))
+```
+The only change in the model would be the total revenue earned(decreased from 1764000 to 1461600), revenue earned by the sale of fine grains and the shadow value of fine grains(6000 to 4200).
+
+## Question 5a
+From the output given, the model is MPG = 36.0743 - 0.8525*(Vehicle Age)  
+Coefficient of Vehicle Age = -0.8525. Every unit increase in vehicle age decreases the average miles per gallon by 0.8525 given all other predictors constant.  
+The p-value=0.0235(< 0.05), thus we have sufficient evidence to reject the null hypothesis that the intercept is 0 and conclude that the slope parameter is statistically significant at the 5% level of confidence.  
+<br>
+Further Analysis: the model can be improved by taking into account the driving years, type of vehicles, mileage, vehicle age and if the vehicle is new or old.  
+
+## Question 5b
+From the output given, Coefficient of Vehicle Age = -0.7664. Every unit increase in vehicle age decreases the average miles per gallon by 0.7664 given all other predictors constant.  
+The p-value=0.238(>0.05), thus we do not have sufficient evidence to reject the null hypothesis that the coefficient is 0. Therefore, the coefficient is statistically insignificant at the 5% level of confidence. 
+<br>
+From the output given, Coefficient of mileage = -8.057e-06. Every unit increase in mileage decreases the average miles per gallon by 8.057e-06 given all other predictors constant.  
+The p-value=0.870(>0.05), thus we do not have sufficient evidence to reject the null hypothesis that the coefficient is 0. Therefore, the coefficient is statistically insignificant at the 5% level of confidence.
+<br>
+Further Analysis: the model can be improved by taking into account the driving years, type of vehicles, vehicle age and if the vehicle is new or old.  
+
+## Question 5c
+Let Used = 1, new = 0.  
+From the output given, Coefficient of Vehicle Age = -1.682. Every unit increase in vehicle age decreases the average miles per gallon by 1.682 given all other predictors constant.  
+The p-value=0.0895(>0.05), thus we do not have sufficient evidence to reject the null hypothesis that the coefficient is 0. Therefore, the coefficient is statistically insignificant at the 5% level of confidence.   
+<br>
+From the output given, Coefficient of mileage = 1.975e-05. Every unit increase in mileage increases the average miles per gallon by 1.975e-05 given all other predictors constant.  
+The p-value=0.7105(>0.05), thus we do not have sufficient evidence to reject the null hypothesis that the coefficient is 0. Therefore, the coefficient is statistically insignificant at the 5% level of confidence.  
+<br>
+From the output given, Coefficient of Purchased.c = -7.604. If Purchased.c increases by one unit(the vehicle is used; not new), the average miles per gallon decreases by 7.604 given all other predictors constant.  
+The p-value=0.2104(>0.05), thus we do not have sufficient evidence to reject the null hypothesis that the coefficient is 0. Therefore, the coefficient is statistically insignificant at the 5% level of confidence.  
+<br>
+Further Analysis: the model can be improved by taking into account the driving years, type of vehicles and vehicle age.  
+
+## Question 5d (unsure)
+Interaction will be same as Purchased.c column.  
+
+
+
+
+## Quesiton 5e
+(b) will be the best model?
+

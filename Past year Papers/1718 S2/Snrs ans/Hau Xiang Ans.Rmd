@@ -1,0 +1,363 @@
+---
+title: "BT1101 17/18 SEM 2 FINALS"
+output: html_document
+---
+
+
+```{r load-libraries, echo=T, warning = FALSE, message = FALSE}
+# install required packages if you have not (suggested packages: rcompanion, rstatix, Rmisc, dplyr, tidyr, rpivotTable, knitr, psych)
+#install.packages('tsbox')
+#install.packages("dplyr") #only need to run this code once to install the package
+# load required packages 
+# library("xxxx")
+library('libcoin')
+library("rcompanion") #this package is required for transformTukey function
+library("rstatix")
+library("Rmisc") 
+library("dplyr") #need to call the library before you use the package
+library("tidyr")
+library("rpivotTable")
+library("knitr")
+library("psych")
+library(tidyverse)
+library(ggplot2) 
+library(TTR)
+library(factoextra) # for fviz_cluster()
+library(lpSolve)
+# predictive/prescriptive analytics
+library(tseries) 
+library(forecast)
+library(lpSolve)
+library(tsbox)
+
+# descriptive analytics
+library(psych)
+library(Rmisc)
+library(rcompanion)
+library(rpivotTable)
+library(EnvStats) 
+library(car)
+library(rstatix)
+
+# general use
+library(wooldridge)
+library(dplyr)
+library(tidyr)
+library(knitr)
+
+```
+
+Some formulas:
+test statistic z for proportion: (probability-proportion)/sqrt(proportion*(1-proportion)/n)
+test statistic t for comparing means: (new mean-old mean)/(sd/sqrt(n))
+z critical value: qnorm(0.05) # 5% level of significance, one tailed
+t critical value: qt(0.975,df=n-1)
+confidence interval: mean +- test statistic t*(sd/sqrt(n)) 
+prediction interval: mean +- test statistic t*(sd*sqrt(1/1+n))
+
+
+```{r q, echo=T}
+#q1a
+yes <- c(rep(1,20),rep(0,12))
+risk <- data.frame(yes)
+averse <- risk %>% filter(yes==1)
+pb <- nrow(averse)/nrow(risk)
+#compute test statistic z
+z <- (pb-0.7)/sqrt(0.7*(1-0.7)/nrow(risk))
+#compute critical value
+cv95 <- qnorm(0.05)
+
+#q1b
+t1b=(365-350)/(38/10)
+crit1b=qt(0.95,99)
+p1b=pt(3.947,99)
+
+#q3
+qt(0.025,df=22)
+162.29+2.073873*(107.80/sqrt(23))
+162.29-2.073873*(107.80/sqrt(23))
+2.07+2.073873*(1.54*sqrt(1+1/23))
+2.07-2.073873*(1.54*sqrt(1+1/23))
+
+
+```
+
+1a) H0: Proportion>=0.7 H1: Proportion<0.7. Since we are conducting a lower one tailed test and the z value is not lesser than the critical value, we do not have sufficient evidence to reject H0 as the z-value does not fall within the rejection region. We conclude that at the 5% level of significance, the belief whereby the proportion of investors who are risk averse is at least 0.7.
+
+1b) HO: New mean<=350 H1: New mean>350. Since we are conducting a upper one-tailed hypothesis test for the mean and the t-test statistic is greater than the critical value, we have sufficient evidence to reject H0 as the t-test statistic falls within the rejection region. We conclude that at the 5% level of significance, the quality of new applicants has improved such that the mean score is greater than 350.
+
+2a) Reliability means that data are accurate and consistent. Validity means that data correctly measure what they are supposed to measure. For example, a tire pressure gauge that consistently reads several pounds of pressure below the true value is not reliable, although it is valid because it does measure tire pressure.
+
+2b) Yes. If data used in business analytics is not reliable, for example, the weight of a product sold by a company is constantly above the stated and expected value, the company might end up incurring extra costs and not even realize it till it is too late. If data used in business analytics is not valid, for example, a ruler is used to measure the weight of goods produced by a company, the company would end up having invalid data that is useless and unable to be used for analysis of its goods.
+
+3a) Each record describes the profile of one gym member. It contains the personal information and physical measurements of the gym member, as well as the duration of different exercises that they do in the gym. 
+
+3bi) The shapiro.test value is 0.3133>0.05. H0: Data drawn from a normally distributed population. H1: Data not drawn from a normally distributed population. There is insufficient evidence to prove that the data is not normally distributed, hence we do not reject H0 and conclude that the data is normally distributed at the 5% level of significance. With reference to the histogram as well, we can see that the normal distribution best describes the variable 'BMI calculation'.
+
+3bii) Under the describeBy function, we can see that for group F, n=10, hence there are 10 female records in the database.
+
+3biii) Taking the mean BMI for both genders with average body build, we get (4*22.56+4*27.97)/8=25.27
+
+3biv) upperCI: 162.29+2.073873*(107.80/sqrt(23))=208.91
+lowerCI: 162.29-2.073873*(107.80/sqrt(23))=115.67
+The 95% confidence interval for time spent in the gym is [115.67,208.91].
+
+3d) BMI calculation has a strong positive linear relationship with Pant Size and Weight, moderate positive linear relationship with Height and weak positive linear relationship with Lifting Session. There is almost no linear relationship between BMI calculation with Weight Lift and Time spent in gym. BMI calculation also has a moderate negative linear relationship with distance of run, and a weak negative linear relationship with running times.
+
+3ei) For fig3.8: H0: No true difference between mean BMI Calculation between the two genders. H1: True difference in mean BMI Calculation between two genders is not equal to 0.
+
+For fig 3.9: No true difference in the mean time spent in gym between the two genders. H1: True difference in mean time spent in gym is not equal to 0.
+
+3eii) For fig 3.8, since the p-value of the test is 0.006188<0.05, we conclude that there is sufficient evidence to reject H0 in favour of H1 at the 5% level of significance. We conclude that there is indeed a true difference in mean BMI Calculation between males and females.
+
+For fig 3.9, since the p-value of the test is 0.06628>0.05, we conclude that there is insufficient evidence to reject H0, hence we accept H0 at the 5% level of significance. We conclude that there is no true difference in the mean time spent in gym between males and female.
+
+3f) Tom would need to perform tests to check for normality and standard deviation for each of the body types, before being able to perform ANOVA to check for whether there is a true difference between the mean time spent in the gym depending on their body type. To do so, Tom would need to filter the data based on the different body types into 5 different data frames, each for one body type. From there, he can perform shapiro.test and fligner.test on each of the 5 data frames to check for normality and variance, since it can be seen that the sample size for different body types are not consistent. After performing the tests and assuming that the 3 assumptions of ANOVA are met, Tom can then perform ANOVA by piping the data frame into aov(`Time Spent in Gym` ~ `Body Type`). If the 3 assumptions of ANOVA are not met, we use the Welch ANOVA test by piping the data frame into welch_anova_test(`Time Spent in Gym` ~ `Body Type`). From there, H0: No true difference in mean time spent in gym between all the body types. H1: mean time spent in gym for at least one body type is different from the other body types. After performing ANOVA, if the p-value>0.05, he does not have sufficient evidence to reject H0, hence we accept H0 at the 5% level of significance and conclude that there is no true difference in mean time spent in gym between all the body types. If the p-value<0.05, he sufficient evidence to reject H0 in favour of H1 at the 5% level of significance and conclude that the mean time spent in gym for at least one body type is different from the other body types. If p-value<0.05, we would perform post-ad tests to figure out which pair of body types have a difference in mean time spent in gym. To do so, we would use TukeyHSD or Games Howell Test. This will show pairwise comparison between each pair of different body types. For every pair, there will be a p-value. For every pair, H0: no true difference between the mean time spent in gym between the two body types. H1: true difference between the mean time spent in gym between the two body types not equal to zero. If p-value<0.05, he does not have sufficient evidence to reject H0, hence we accept H0 at the 5% level of significance and conclude that there is no true difference in mean time spent in gym between the pair of body types. If the p-value<0.05, he has sufficient evidence to reject H0 in favour of H1 at the 5% level of significance and conclude that the mean time spent in gym is different between the pair of body types.
+
+3g) upperPI: 2.07+2.073873*(1.54/sqrt(1+1/23))=5.33
+lowerPI: 2.07-2.073873*(1.54/sqrt(1+1/23))=-1.19
+Since the value for distance of run cannot be negative, as you cannot run a negative distance, the lowerPI value lower limit would be limited to 0. As such, the 95% prediction interval for distance of run for a new person is [0,5.33] miles. Given the current observed distance of run, the price of a new person's distance of run will lie within this interval with a 95% level of confidence. With repeated sampling, 95% of such constructed predictive intervals would contain the new distance of run.
+
+4a) Optimization model to minimize costs.
+
+Minimize costs using decision variables $X_1$, $X_2$, $X_3$, $X_4$, $X_5$, $X_6$, $X_7$, $X_8$, $X_9$ | Costs= 0.48$X_1$ + 0.39$X_2$ + 0.21$X_3$ + 0.23$X_4$ + 0.15$X_5$ + 0.11$X_6$ + 0.66$X_7$ + 0.25$X_8$ + 0.52$X_9$ 
+--- | --- 
+Subject to |  
+Minimum protein | 15.7$X_1$ + 13.1$X_2$ + 8.6$X_3$ + 17.2$X_4$ + 6.7$X_5$ + 12.4$X_6$ + 17.4$X_7$ + 13.9$X_8$ + 15.3$X_9$ $\geq$ 11
+Minimum fat | 28.8$X_1$ + 4.3$X_2$ + 4.7$X_3$ + 6.2$X_4$ + 3.9$X_5$ + 1.5$X_6$ + 14.7$X_7$ + 4.6$X_8$ + 12.4$X_9$ $\geq$ 28
+Maximum fiber | 25.7$X_1$ + 5.6$X_2$ + 2.8$X_3$ + 3.1$X_4$ + 1.7$X_5$ + 2.5$X_6$ + 23.4$X_7$ + 13.2$X_8$ + 15.3$X_9$ $\leq$ 4
+Integer, Non-Negativity Constraints | $X_1$ to $X_9$ all integers and $\geq$ 0
+
+
+```{r q4,echo=T}
+objective.fn <- c(0.48, 0.39, 0.21, 0.23, 0.15, 0.11, 0.66, 0.25, 0.52)
+const.mat <- matrix(c(15.7, 13.1, 8.6, 17.2, 6.7, 12.4, 17.4, 13.9, 15.3, 
+                      28.8, 4.3, 4.7, 6.2, 3.9, 1.5, 14.7, 4.6, 12.4,
+                      25.7, 5.6, 2.8, 3.1, 1.7, 2.5, 23.4, 13.2, 15.3,
+                      1,0,0,0,0,0,0,0,0,
+                      0,1,0,0,0,0,0,0,0,
+                      0,0,1,0,0,0,0,0,0,
+                      0,0,0,1,0,0,0,0,0,
+                      0,0,0,0,1,0,0,0,0,
+                      0,0,0,0,0,1,0,0,0,
+                      0,0,0,0,0,0,1,0,0,
+                      0,0,0,0,0,0,0,1,0,
+                      0,0,0,0,0,0,0,0,1), 
+                    ncol = 9,byrow = T)
+const.dir <- c(rep('>=',2),'<=',rep('>=',9))
+const.rhs <- c(11, 28, 4, rep(0,9))
+lp.solution <- lp('min',objective.fn,const.mat,const.dir,const.rhs, compute.sens = T)
+lp.solution$solution
+lp.solution
+
+```
+From the model, we are unable to find a combination of ingredients that are able to fulfill the criteria of having at least 11% protein, 28% fat, and no more than 4% of fiber. Hence, there are no feasible solutions.
+
+5a) Optimization model to minimize transportation costs.
+
+Minimize costs using decision variables $X_{11}$, $X_{12}$, $X_{13}$, $X_{14}$, $X_{15}$, $X_{21}$, $X_{22}$, $X_{23}$, $X_{24}$, $X_{25}$, $X_{31}$, $X_{32}$, $X_{33}$, $X_{34}$, $X_{35}$ | Costs= 12.40$X_{11}$, 13.75$X_{12}$, 12.30$X_{13}$, 12.15$X_{14}$, 18.35$X_{15}$, 8.5$X_{21}$, 18.55$X_{22}$, 8.80$X_{23}$, 9.85$X_{24}$, 16.45$X_{25}$, 9.3$X_{31}$, 14.25$X_{32}$, 6.45$X_{33}$, 11.15$X_{34}$, 14.95$X_{35}$
+--- | --- 
+Subject to |  
+Maximum for factory A | $X_{11}$ + $X_{12}$ + $X_{13}$ + $X_{14}$ + $X_{15}$ $\leq$ 1300
+Maximum for factory B | $X_{21}$ + $X_{22}$ + $X_{23}$ + $X_{24}$ + $X_{25}$ $\leq$ 900
+Maximum for factory C | $X_{31}$ + $X_{32}$ + $X_{33}$ + $X_{34}$ + $X_{35}$ $\leq$ 400
+Center A | $X_{11}$ + $X_{21}$ + $X_{31}$ = 160
+Center B | $X_{12}$ + $X_{22}$ + $X_{32}$ = 330
+Center C | $X_{13}$ + $X_{23}$ + $X_{33}$ = 600
+Center D | $X_{14}$ + $X_{24}$ + $X_{34}$ = 590
+Center E | $X_{15}$ + $X_{25}$ + $X_{35}$ = 880
+Integer, Non-Negativity Constraints | $X_{11}$ to $X_{35}$ all integers and $\geq$ 0
+
+```{r q5a,echo=T}
+objective.fn <- c(12.4, 13.75, 12.3, 12.15, 18.35, 8.5, 18.55, 8.80, 9.85, 16.45, 9.3, 14.25, 6.45, 11.15, 14.95)
+const.mat <- matrix(c(rep(1,5),rep(0,10),
+                      rep(0,5),rep(1,5),rep(0,5),
+                      rep(0,10),rep(1,5),
+                      rep(0,0),1,rep(0,4),1,rep(0,4),1,rep(0,4),
+                      rep(0,1),1,rep(0,4),1,rep(0,4),1,rep(0,3),
+                      rep(0,2),1,rep(0,4),1,rep(0,4),1,rep(0,2),
+                      rep(0,3),1,rep(0,4),1,rep(0,4),1,rep(0,1),
+                      rep(0,4),1,rep(0,4),1,rep(0,4),1,rep(0,0),
+                      rep(0,0),1,rep(0,14),
+                      rep(0,1),1,rep(0,13),
+                      rep(0,2),1,rep(0,12),
+                      rep(0,3),1,rep(0,11),
+                      rep(0,4),1,rep(0,10),
+                      rep(0,5),1,rep(0,9),
+                      rep(0,6),1,rep(0,8),
+                      rep(0,7),1,rep(0,7),
+                      rep(0,8),1,rep(0,6),
+                      rep(0,9),1,rep(0,5),
+                      rep(0,10),1,rep(0,4),
+                      rep(0,11),1,rep(0,3),
+                      rep(0,12),1,rep(0,2),
+                      rep(0,13),1,rep(0,1),
+                      rep(0,14),1,rep(0,0)),
+                    ncol = 15,byrow = T)
+const.dir <- c(rep('<=',3),rep('=',5),rep('>=',15))
+const.rhs <- c(1300, 900, 400, 160, 330, 600, 590, 880, rep(0,15))
+lp.solution <- lp('min',objective.fn,const.mat,const.dir,const.rhs, all.int = T)
+lp.solution$solution
+lp.solution
+
+```
+
+The optimal solution would be to send 330,50 and 880 tins of milk powder from factory A to centers B, D and E respectively, send 160, 200 and 540 tins of milk powder from factory B to centers A, C and D respectively and send 400 tins of milk powder from factory C to center C. This would yield the lowest transportation costs of \$32312, given the capacity constraints of the factories.
+
+5b) Minimize costs by building only one out of two factories available. We make two separate models to compare which factory would yield a lower transportation cost. The first model is for factory D, the second model is for factory E 
+
+
+Minimize costs using decision variables $X_{11}$, $X_{12}$, $X_{13}$, $X_{14}$, $X_{15}$, $X_{21}$, $X_{22}$, $X_{23}$, $X_{24}$, $X_{25}$, $X_{31}$, $X_{32}$, $X_{33}$, $X_{34}$, $X_{35}$, $X_{41}$, $X_{42}$, $X_{43}$, $X_{44}$, $X_{45}$ | Costs= 12.40$X_{11}$ + 13.75$X_{12}$ + 12.30$X_{13}$ + 12.15$X_{14}$ + 18.35$X_{15}$ + 8.5$X_{21}$ + 18.55$X_{22}$ + 8.80$X_{23}$ + 9.85$X_{24}$ + 16.45$X_{25}$ + 9.3$X_{31}$ + 14.25$X_{32}$ + 6.45$X_{33}$ + 11.15$X_{34}$ + 14.95$X_{35}$ + 11.40$X_{41}$ + 10.60$X_{42}$ + 9.75$X_{43}$ + 13.55$X_{44}$ + 11.95$X_{45}$
+--- | --- 
+Subject to |  
+Maximum for factory A | $X_{11}$ + $X_{12}$ + $X_{13}$ + $X_{14}$ + $X_{15}$ $\leq$ 1300
+Maximum for factory B | $X_{21}$ + $X_{22}$ + $X_{23}$ + $X_{24}$ + $X_{25}$ $\leq$ 900
+Maximum for factory C | $X_{31}$ + $X_{32}$ + $X_{33}$ + $X_{34}$ + $X_{35}$ $\leq$ 400
+Maximum for factory D | $X_{41}$ + $X_{42}$ + $X_{43}$ + $X_{44}$ + $X_{45}$ $\leq$ 1200
+Center A | $X_{11}$ + $X_{21}$ + $X_{31}$ + $X_{41}$ = 176
+Center B | $X_{12}$ + $X_{22}$ + $X_{32}$ + $X_{42}$= 363
+Center C | $X_{13}$ + $X_{23}$ + $X_{33}$ + $X_{43}$= 660
+Center D | $X_{14}$ + $X_{24}$ + $X_{34}$ + $X_{44}$= 649
+Center E | $X_{15}$ + $X_{25}$ + $X_{35}$ + $X_{45}$= 968
+Integer, Non-Negativity Constraints | $X_{11}$ to $X_{45}$ all integers and $\geq$ 0
+
+```{r q5a D,echo=T}
+objective.fn <- c(12.4, 13.75, 12.3, 12.15, 18.35, 8.5, 18.55, 8.80, 9.85, 16.45, 9.3, 14.25, 6.45, 11.15, 14.95, 11.4, 10.6, 9.75, 13.55, 11.95)
+const.mat <- matrix(c(rep(1,5),rep(0,15),
+                      rep(0,5),rep(1,5),rep(0,10),
+                      rep(0,10),rep(1,5),rep(0,5),
+                      rep(0,15),rep(1,5),
+                      rep(0,0),1,rep(c(0,0,0,0,1),3),rep(0,4),
+                      rep(0,1),1,rep(c(0,0,0,0,1),3),rep(0,3),
+                      rep(0,2),1,rep(c(0,0,0,0,1),3),rep(0,2),
+                      rep(0,3),1,rep(c(0,0,0,0,1),3),rep(0,1),
+                      rep(0,4),1,rep(c(0,0,0,0,1),3),rep(0,0),
+                      rep(0,0),1,rep(0,19),
+                      rep(0,1),1,rep(0,18),
+                      rep(0,2),1,rep(0,17),
+                      rep(0,3),1,rep(0,16),
+                      rep(0,4),1,rep(0,15),
+                      rep(0,5),1,rep(0,14),
+                      rep(0,6),1,rep(0,13),
+                      rep(0,7),1,rep(0,12),
+                      rep(0,8),1,rep(0,11),
+                      rep(0,9),1,rep(0,10),
+                      rep(0,10),1,rep(0,9),
+                      rep(0,11),1,rep(0,8),
+                      rep(0,12),1,rep(0,7),
+                      rep(0,13),1,rep(0,6),
+                      rep(0,14),1,rep(0,5),
+                      rep(0,15),1,rep(0,4),
+                      rep(0,16),1,rep(0,3),
+                      rep(0,17),1,rep(0,2),
+                      rep(0,18),1,rep(0,1),
+                      rep(0,19),1,rep(0,0)),
+                    ncol = 20,byrow = T)
+const.dir <- c(rep('<=',4),rep('=',5),rep('>=',20))
+const.rhs <- c(1300, 900, 400, 1200, 176, 363, 660, 649, 968, rep(0,20))
+lp.solution <- lp('min',objective.fn,const.mat,const.dir,const.rhs, all.int = T)
+lp.solution$solution
+lp.solution
+
+```
+
+Minimize costs using decision variables $X_{11}$, $X_{12}$, $X_{13}$, $X_{14}$, $X_{15}$, $X_{21}$, $X_{22}$, $X_{23}$, $X_{24}$, $X_{25}$, $X_{31}$, $X_{32}$, $X_{33}$, $X_{34}$, $X_{35}$, $X_{41}$, $X_{42}$, $X_{43}$, $X_{44}$, $X_{45}$ | Costs= 12.40$X_{11}$ + 13.75$X_{12}$ + 12.30$X_{13}$ + 12.15$X_{14}$ + 18.35$X_{15}$ + 8.5$X_{21}$ + 18.55$X_{22}$ + 8.80$X_{23}$ + 9.85$X_{24}$ + 16.45$X_{25}$ + 9.3$X_{31}$ + 14.25$X_{32}$ + 6.45$X_{33}$ + 11.15$X_{34}$ + 14.95$X_{35}$ + 14.10$X_{41}$ + 15.50$X_{42}$ + 13.85$X_{43}$ + 9.45$X_{44}$ + 12.25$X_{45}$ 
+--- | --- 
+Subject to |  
+Maximum for factory A | $X_{11}$ + $X_{12}$ + $X_{13}$ + $X_{14}$ + $X_{15}$ $\leq$ 1300
+Maximum for factory B | $X_{21}$ + $X_{22}$ + $X_{23}$ + $X_{24}$ + $X_{25}$ $\leq$ 900
+Maximum for factory C | $X_{31}$ + $X_{32}$ + $X_{33}$ + $X_{34}$ + $X_{35}$ $\leq$ 400
+Maximum for factory E | $X_{41}$ + $X_{42}$ + $X_{43}$ + $X_{44}$ + $X_{45}$ $\leq$ 1200
+Center A | $X_{11}$ + $X_{21}$ + $X_{31}$ + $X_{41}$ = 176
+Center B | $X_{12}$ + $X_{22}$ + $X_{32}$ + $X_{42}$= 363
+Center C | $X_{13}$ + $X_{23}$ + $X_{33}$ + $X_{43}$= 660
+Center D | $X_{14}$ + $X_{24}$ + $X_{34}$ + $X_{44}$= 649
+Center E | $X_{15}$ + $X_{25}$ + $X_{35}$ + $X_{45}$= 968
+Integer, Non-Negativity Constraints | $X_{11}$ to $X_{45}$ all integers and $\geq$ 0
+
+```{r q5a E,echo=T}
+objective.fn <- c(12.4, 13.75, 12.3, 12.15, 18.35, 8.5, 18.55, 8.80, 9.85, 16.45, 9.3, 14.25, 6.45, 11.15, 14.95, 14.1, 15.5, 13.85, 9.45, 12.25)
+const.mat <- matrix(c(rep(1,5),rep(0,15),
+                      rep(0,5),rep(1,5),rep(0,10),
+                      rep(0,10),rep(1,5),rep(0,5),
+                      rep(0,15),rep(1,5),
+                      rep(0,0),1,rep(c(0,0,0,0,1),3),rep(0,4),
+                      rep(0,1),1,rep(c(0,0,0,0,1),3),rep(0,3),
+                      rep(0,2),1,rep(c(0,0,0,0,1),3),rep(0,2),
+                      rep(0,3),1,rep(c(0,0,0,0,1),3),rep(0,1),
+                      rep(0,4),1,rep(c(0,0,0,0,1),3),rep(0,0),
+                      rep(0,0),1,rep(0,19),
+                      rep(0,1),1,rep(0,18),
+                      rep(0,2),1,rep(0,17),
+                      rep(0,3),1,rep(0,16),
+                      rep(0,4),1,rep(0,15),
+                      rep(0,5),1,rep(0,14),
+                      rep(0,6),1,rep(0,13),
+                      rep(0,7),1,rep(0,12),
+                      rep(0,8),1,rep(0,11),
+                      rep(0,9),1,rep(0,10),
+                      rep(0,10),1,rep(0,9),
+                      rep(0,11),1,rep(0,8),
+                      rep(0,12),1,rep(0,7),
+                      rep(0,13),1,rep(0,6),
+                      rep(0,14),1,rep(0,5),
+                      rep(0,15),1,rep(0,4),
+                      rep(0,16),1,rep(0,3),
+                      rep(0,17),1,rep(0,2),
+                      rep(0,18),1,rep(0,1),
+                      rep(0,19),1,rep(0,0)),
+                    ncol = 20,byrow = T)
+const.dir <- c(rep('<=',4),rep('=',5),rep('>=',20))
+const.rhs <- c(1300, 900, 400, 1200, 176, 363, 660, 649, 968, rep(0,20))
+lp.solution <- lp('min',objective.fn,const.mat,const.dir,const.rhs, all.int = T)
+lp.solution$solution
+lp.solution
+
+```
+
+From the two linear models, we can see that the minimum transport costs to fulfill the increased demands should Factory D be opened would be $29010.20, while the minimum transport costs to fulfill the increased demands should factory E be opened would be \$29513.10. Hence, factory D should be opened instead of factory E if we want to minimize transportation costs.
+
+```{r q6,echo=T}
+week <- c(1,2,3,4,5,6,7,8,9,10)
+tins_sold <- c(15,18,37,40,39,38,35,41,55,30)
+milk_df <- data.frame(week,tins_sold)
+colnames(milk_df) <- c('Week','Tins Sold')
+#milk_df$tins_soldSMA <- SMA(milk_df$`Tins Sold`,n=1)
+#mean((milk_df$tins_soldSMA - milk_df$`Tins Sold`)^2, na.rm=T)
+#find best value for k to give smallest root mean squared error
+for(k in 1:8) {
+  milk_df$tins_soldSMA<- dplyr::lag(SMA(milk_df$`Tins Sold`, n=k),1)
+  print(k)
+  print(mean((milk_df$tins_soldSMA - milk_df$`Tins Sold`)^2,na.rm=T))
+}
+
+milk_df$soldSMA <- dplyr::lag(SMA(milk_df$`Tins Sold`, n=5),1)
+milk_df$soldSMA
+#View(milk_df)
+
+milk_dfmain <- milk_df[1:7,]
+milk_dfHeldout <- milk_df[8:10,]
+View(milk_dfHeldout)
+
+hwcorrect <- HoltWinters(milk_df$`Tins Sold`,gamma=F)
+hwcorrect_pred <- predict(hwcorrect,n.ahead = 1 )
+plot(hwcorrect)
+
+for(k in c(0.1,0.3,0.5,0.7,0.9)) {
+  hw1 <- HoltWinters(milk_dfmain$`Tins Sold`,alpha=k,gamma=F)
+  hw1_pred <- predict(hw1,n.ahead = 3)
+  print(k)
+  print(sqrt(mean((hw1_pred-milk_dfHeldout$`Tins Sold`)^2,na.rm = T)))
+}
+
+
+```
+
+Using the SMA model, we lag the data by 1 so that we can use data from the past k weeks to predict the data for the k+1th week. From there, we find out that from values of [1:8], k=5 gives the smallest mean squared error. This means that we use data from the past 5 weeks to predict the number of milk tins sold for the next week. The forecast for week 11 would thus be the sum of sales from weeks 6-10 divided by 5=40.
+
+We first create two data sets, one for weeks 1-7, and another for weeks 8,9,10 to be used as our test case. Using the data from weeks 1-7, we apply a Holt Winters model with different smoothing constants. We then use this model to predict the sales volume for weeks 8-10. Using this prediction and the actual data from weeks 8-10, we calculate the RMSE and find the smoothing constant which gives the smallest RMSE. We then use this smoothing constant to predict the sales volume for week 11, which would be 49.
+
+
+
+
+

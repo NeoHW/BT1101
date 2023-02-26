@@ -1,0 +1,339 @@
+---
+title: "2021 SEM1"
+author: "BT1101 Student. Neo Haowei"
+date: '11 Nov 2021, 1:00 - 3:30 PM'
+output: html_document
+---
+
+## Question List
+### - Q1 : Statistical Measures, Probability distributions, Hypo testing
+### - Q2 : Integer Optimization
+### - Q3 : Linear Regression, Time Series
+
+
+## Some Formulas:
+<p style="color:blue">
+Mean use T-test, Proportion Z-test  
+test statistic z for proportion: (proportion-probability) / sqrt(probability * (1-probability)/n)  
+test statistic t for comparing means: (new mean-old mean)/(sd/sqrt(n))  
+z critical value: qnorm(0.05) # 5% level of significance, one tailed  
+t critical value: qt(0.975,df=n-1)  
+confidence interval for mean: mean +- `test statistic t` * (sd/sqrt(n)) OR use CI()  
+prediction interval: mean +- `test statistic t` * (sd * sqrt(1+(1/n))  
+confidence interval for proportions: p +- `test statistic z`  * (sqrt(p*(1-p)/n)) 
+</p>
+
+
+## Preparation
+
+```{r preparation, echo=TRUE, warning = FALSE, message = FALSE}
+
+library('libcoin')
+library("rcompanion") #this package is required for transformTukey function
+library("rstatix")
+library("Rmisc") 
+library("dplyr") #need to call the library before you use the package
+library("tidyr")
+library("rpivotTable")
+library("knitr")
+library("psych")
+library(tidyverse)
+library(ggplot2) 
+library(TTR)
+library(factoextra) # for fviz_cluster()
+library(lpSolve)
+
+# predictive/prescriptive analytics
+library(tseries) 
+library(forecast)
+library(lpSolve)
+
+# descriptive analytics
+library(psych)
+library(Rmisc)
+library(rcompanion)
+library(rpivotTable)
+library(EnvStats) 
+library(car)
+library(rstatix)
+
+# general use
+library(wooldridge)
+library(dplyr)
+library(tidyr)
+library(knitr)
+```
+
+## Question BT1101- University GPA (total 15 marks) - Data set: `gpa2` in `wooldridge` public data sets.
+```{r load-gpa2}
+# load the data set, make sure you already loaded `wooldridge` package
+library(wooldridge)
+data(gpa2)
+```
+This data set is from a midsize research university. It has 4137 observations on 12 variables:
+- `sat`: combined SAT score (includes verbal, writing and maths score) - `tothrs`: total hours through fall semest
+- `colgpa`: GPA after fall semester
+- `athlete`: =1 if athlete
+- `verbmath`: verbal and math SAT score
+- `hsize`: size of high school graduation class, 100s
+- `hsrank`: rank in high school graduation class (where rank 1 is top in the class)
+- `hsperc`: high school percentile, from top (i.e. a value of "10" means "top 10 percent in high school") - `female`: =1 if female; =0 if male
+- `white`: =1 if white
+- `black`: =1 if black
+- `hsizesq`: hsize^2
+
+**(a) This dataset comprises 4 demographic variables (`athlete`, `female`, `white`, `black`) on students.**   
+**-i) Create a table to display the frequency of students in the dataset for each category defined by the combination of all 4 variables. You can use a normal table or a pivot table. You may exclude combination(s) with no occurrence in the table.** (1 mark)  
+
+``` {r q1, echo = TRUE}
+# 1a <- gpa2 %>% group_by(`athlete`, `female`, `white`, `black`) %>% count()
+#kable(1a) # gives table of mean for each loan purpose
+
+rpivotTable(gpa2, rows = c("athlete", "female", "white", "black"),aggregatorName = "Count")
+```
+
+
+**- ii) Based on the table in (ai), what is the difference in number of black male athlete students to non-black male athlete students? (1 mark)  **  
+black male athlete students: 33  
+non-black male athlete students: 112 + 4 = 116  
+difference in number of black male athlete students to non-black male athlete students: 83  
+
+**(b) There are a few variables that measure the performance of students, namely `sat`, `colgpa`, `verbmath`, `hsrank` and `hsperc`. You may treat these as continuous random variables.**  
+**-i) The university is interested to know if there is any linear relationship between `colgpa` and high school performance (`sat`, `verbmath`, `hsrank` and `hsperc`). Check this visually as well as with the appropriate statistical measure(s). Interpret your results.** (2 marks) **(ensure all graphs are clearly labeled with the appropriate titles and axes names.)**  
+``` {r q1b, echo = TRUE}
+
+par(mfcol=c(2,2))
+#use scatterplot to determine visually
+plot(gpa2$colgpa, gpa2$sat, main="Scatterplot of colgpa and sat", pch=18) 
+plot(gpa2$colgpa, gpa2$verbmath, main="Scatterplot of colgpa and verbmath", pch=18) 
+plot(gpa2$colgpa, gpa2$hsrank, main="Scatterplot of colgpa and hsrank", pch=18) 
+plot(gpa2$colgpa, gpa2$hsperc, main="Scatterplot of colgpa and hsperc", pch=18) 
+
+cor(gpa2$colgpa, gpa2$sat)
+cor(gpa2$colgpa, gpa2$verbmath)
+cor(gpa2$colgpa, gpa2$hsrank)
+cor(gpa2$colgpa, gpa2$hsperc)
+
+```
+Based on the graphs, there seems to be a slight positive linear relationship for colgpa and sat.  
+Based on the correlation test, the correlation coefficient of colgpa and sat is 0.4087123, showing a moderate positive linear relationship.  
+<br>
+Based on the graphs, there does not seem to be a linear relationship for colgpa and verbmath.   
+Based on the correlation test, the correlation coefficient of colgpa and verbmath is -0.002438257, showing a weak negative linear relationship.  
+<br>
+Based on the graphs, there does not seem to be a linear relationship for colgpa and hsrank.     
+Based on the correlation test, the correlation coefficient of colgpa and hsrank is -0.3353691, showing a moderate negative linear relationship.  
+<br>
+Based on the graphs, there seems to be a slight negative linear relationship for colgpa and hsperc   
+Based on the correlation test, the correlation coefficient of colgpa and hsperc is -0.428533, showing a moderate negative linear relationship.  
+
+- **ii) Compute and interpret the 99% prediction interval for `colgpa`.** (2 marks)  
+``` {r q1bii, echo = TRUE}
+# In order for predictions to be valid, our variables should be normally distributed. Hence, check for normality!
+plot(density(gpa2$colgpa),main="Density plot for colgpa")
+shapiro.test(gpa2$colgpa)
+# Not normally distributed as p-value is much less than 0.05. According to the shape of density graph,the peak of the graph is obviously much to the right.
+
+gpa2$colgpa.t = transformTukey(gpa2$colgpa, plotit=TRUE) # lambda 1.225
+
+# Using x ^ lambda where lambda = 1.225
+mn.amount.t <- mean(gpa2$colgpa.t)
+sd.amount.t <- sd(gpa2$colgpa.t)
+lpi.amtt <- mn.amount.t + (qt(0.005, df=(nrow(gpa2)-1))*sd.amount.t*sqrt(1+1/nrow(gpa2)))
+upi.amtt <- mn.amount.t - (qt(0.005,df=(nrow(gpa2)-1))*sd.amount.t*sqrt(1+1/nrow(gpa2)))
+print(cbind(lpi.amtt,upi.amtt))
+
+# Reverse transformation using equation
+## y = x ^ lambda ,,  lambda = 0.6 from transformTukey
+## y = x ^ 0.6
+## x = y ^ (1/0.6)
+lpi.amt <- lpi.amtt^(1/1.225)
+upi.amt <- upi.amtt^(1/1.225)
+print(cbind(lpi.amt,upi.amt), digits=4)
+```
+**Type your answer here**  
+Based on density plot and shapiro wilk test: p-value = 1.848e-15 (<0.05). We conclude that colgpa is not normally distributed.
+The 99% prediction interval for colgpa is [0.8118, 4.254]. Given the observed colgpa, the colgpa of a new individual will lie within this interval with a 99% level of confidence. With repeated sampling, 99% of such constructed predictive intervals would contain the new DVD price.
+
+**(c) Set up and test the following hypotheses:**
+
+- **i) Is the mean `colgpa` for male athlete students different from male non-athlete students?** (1.5 marks)
+``` {r q1ci, echo = TRUE}
+# H0 : mean colgpa for male athlete students =  mean colgpa for male non-athlete students
+# H1 : mean colgpa for male athlete students =/=  mean colgpa for male non-athlete students
+
+male_athlete <- gpa2 %>% filter(female == 0 & athlete == 1)
+non_male_athlete <- gpa2 %>% filter(female == 0 & athlete == 0)
+
+t.test(male_athlete$colgpa, non_male_athlete$colgpa)
+
+```
+- **ii) Is the proportion of students with a `colgpa` of more than 3.5, less than 12%? Use alpha=0.01** (2.5 marks)
+``` {r q1cii, echo = TRUE}
+
+# H0 : proportion >= 0.12
+# H1 : proportion < 0.12
+
+over3.5 <- gpa2 %>% filter(colgpa>3.5)
+p3.5 <- nrow(over3.5)/nrow(gpa2)
+z <- (p3.5 - 0.12) / sqrt(0.12*(1-0.12)/nrow(gpa2)) # compute z-statistic for proportion
+z
+cv.over3.5 <- qnorm(0.01) # compute critical value
+cv.over3.5
+z<cv.over3.5
+
+```
+
+Part i)  
+The Welch t test results show we have sufficient evidence to reject H0 (p = 4.353e-09 <0.05). Hence, we can conclude statistically that there is significant difference between mean `colgpa` for male athlete students and mean `colgpa` for male non-athlete students, at the 5% level of significance.  
+
+Part ii)  
+H0: Proportion of students with a `colgpa` of more than 3.5 >= 0.12  
+H1: Proportion of students with a `colgpa` of more than 3.5 < 0.12  
+Since we are conducting a lower one-tailed test and the z value is lesser than the critical value, we have sufficient evidence to reject H0 as the z value falls within the rejection region. We accept that Proportion of students with a `colgpa` of more 3.5 is statistically significant at the 1% level of significance.  
+
+
+**d) The university admin office divides the students into 4 categories, along these two demographic variables - `athlete` and `white`.**
+
+- **i) Compare using a graph, the standard deviations of `colgpa` across the different categories of students. Describe your observation from the graph.** (2 marks)
+**(ensure all graphs are clearly labeled with the appropriate titles and axes names.)**
+``` {r q1di, echo = TRUE}
+gpa2.colgpa <- gpa2 %>% group_by(athlete, white) %>% summarise(SD=sd(colgpa))
+kable(gpa2.colgpa)
+
+
+bar.product <- as.matrix(gpa2.colgpa[,3])
+bar_col1 <- c("red","blue", "orange", "green")
+barplot(bar.product, col=bar_col1,  main="Std Deviations of `colgpa` across categories", cex.names=0.7, las = 1, ylab="SD", ylim=c(0,0.8),names.arg = c("Non white non athlete" , "White non athlete" , "Non white athlete" , "white athlete"), beside = TRUE) 
+
+# for legend 
+#names_legend <- c("non-white, non-athlete","white non-athelete", "non-white athlete", "white athlete")
+#legend("topright", cex = 0.7, fill = bar_col1, names_legend)
+```
+Non-white, non-athletes has the highest SD for colgpa at 0.6701734 while non-white athletes has the lowest SD for colgpa at 0.5377944.
+
+- **ii) With the sample data available, what can you conclude about the statement that “the variation of `colgpa` is not the same across the four categories of students”?** (3 marks)
+
+``` {r q1dii, echo = TRUE}
+
+gpa2<- gpa2 %>% mutate(SD = sd(colgpa))
+gpa2<- gpa2 %>% mutate(groups = ifelse(athlete == "0", ifelse(white == "0", "1", "2"), ifelse(white == "0", "3", "4")))
+
+wa.out1 <- gpa2 %>% welch_anova_test(colgpa ~ groups)
+gh.out1 <- games_howell_test(gpa2, colgpa ~ groups)
+wa.out1
+gh.out1
+
+```
+
+H0: The variation of `colgpa` is the same across the four categories of students.  
+H1: At least one category has a variation of colgpa from the other age groups.  
+Since p value of 2.98e-18<0.05, we have sufficient evidence to reject H0. We conclude that at least one category has a variation of colgpa from the other age groups.  
+From Games Howell test, all pairs except non-athlete,non-white students and white athlete students are significantly different from the rest as their p-values are <0.05.
+
+
+## Question: Portfolio Mangement (total 8 marks) ; Removed Monte Carlo Simulation
+Consider you are a portfolio manager in charge of a simple portfolio which consists of two public traded stocks in Singapore Exchange (SGX) market, 5Xnergy (SGX: 5X) and EverGreen Tech (SGX: EG). The stocks are traded in minimum unit of one share. Given the current and predicted stock prices, the portfolio manager who starts with zero holding, decides the holding positions of the stocks in portfolio, i.e. the number of shares, at the beginning of a financial year and holds the portfolio for a year. Below is the information about the two stocks:
+
+Stock (per share) | Current Price (SGD) | Predicted Price in 1yr (SGD) | Risk (SGD)
+--- | --- | --- | ---
+5X | 15.6 | 19.2 | 0.37
+EG | 3.5 | 21.9 | 18.21
+
+*Risk of a stock is the standard deviation of the predicted price in one year.* Assume that the total risk of the portfolio is a linear combination of risk of the stocks in the portfolio, weighted by the positions, i.e. total risk of a portfolio consisting of $a$ \#shares of 5X and $b$ \#shares of EG is $0.37a + 18.21b$. The total risk of the portfolio should not exceed 50,000 SGD. The portfolio manager is endowed with an investment budget of one million SGD and tries to maximize the total return of the portfolio.  
+
+**(a) Write down the decision variables, the objective function, and ALL relevant constraints that apply for this optimization problem in a table formulation. Do NOT solve the problem yet.** (5 marks)
+
+Maximize total return using decision variables $X_1$, $X_2$ = 5X and EG respectively | Profit = 3.6 $X_1$ + 18.4 $X_2$
+--- | --- 
+Subject to |  
+Budget Constraint | 15.6$X_1$ + 3.5$X_2$ $\leq$ 1,000,000
+Risk Constraint | 0.37$X_1$ + 18.21$X_2$ $\leq$ 50,000
+Non-Negativity Constraint 1 | $X_1$ + $\quad$ $\geq$ 0
+Non-Negativity Constraint 2 | $\quad$ + $X_2$ $\geq$ 0
+Integer Constraints | $X_1$, $X_2$ all integers
+
+
+
+**(b) Solve your formulated optimization problem in R. What are the optimal holdings of the two stocks in the portfolio? What is the optimal total return of the portfolio?** (3 marks)
+
+``` {r q2b, echo = TRUE}
+
+# defining parameters 
+objective.fn = c(3.6, 18.4)
+const.mat = matrix(c(15.6,3.5,
+                     0.37,18.21), ncol = 2, byrow = TRUE)
+const.dir = c(rep('<=', 2))
+const.rhs = c(1000000,50000)
+
+# solving the linear problem
+lp.solution = lp(direction = 'max', objective.fn, 
+              const.mat, const.dir, const.rhs, all.int = TRUE,
+              compute.sens = TRUE)
+print(lp.solution$solution)
+print(lp.solution)
+```
+
+The optimal solution is to buy 63777 5X shares and 1449 EG shares. This combination would yield a maximum return of \$256258.8.  
+
+
+## Question: Traffic Laws (total 15 marks)
+- Data set: `traffic2` in `wooldridge` public data sets.
+```{r loaddta, echo = TRUE}
+# load the data set, make sure you already load `wooldridge` package data(traffic2)
+data(traffic2)
+data <- traffic2
+```
+This data set contains 108 monthly time-series observations with 48 variables on state-wide traffic accidents. For this question, the relevant variables are the following:
+- `year`: 1981 to 1989
+- `totacc`: total number of accidents 
+- `t`: time trend
+- `spdlaw`: = 1 after 65 mph law in effect
+- `beltlaw`:  = 1 after seatbelt law in effect
+
+**(a) Traffic regulation policymaker is concerned if laws on speeding and wearing seatbelt have effect on the number of road accidents. Using the following four variables `totacc`, `t`, `spdlaw` and `beltlaw`, run a linear regression model to examine the relationship. Report the regression output and write out the *fitted line*.** (4 marks)  
+```{r 3a, echo = TRUE}
+fit1 = lm(totacc~t + spdlaw + beltlaw, data)
+summary(fit1)
+
+```
+fitted line: totacc = 37034.50 + 80.29* t - 1318.83 * spdlaw + 4076.69 * beltlaw
+
+
+**(b) Interpret the coefficient estimators before `spdlaw` and `beltlaw`, respectively.** (2 marks)  
+Coefficient of `spdlaw` = -1318.83. If 65 mph law is in effect, the average total number of accidents decreases by 1318.83 given all other predictors constant compared to if the 65 mph law is not in effect.  
+However, the p-value=0.123 (> 0.05),thus we do not have sufficient evidence to reject the null hypothesis that the coefficient is 0. Therefore, the coefficient is statistically insignificant at the 5% level of confidence.  
+<br>
+Coefficient of `beltlaw` = 4076.69. If seatbelt law is in effect, the average total number of accidents increases by 4076.69 given all other predictors constant compared to if the seatbelt law is not in effect.  
+The p-value=3.23e-05 is very small,(< 0.05), thus we have sufficient evidence to reject the null hypothesis that the intercept is 0 and conclude that the slope parameter is statistically significant at the 5% level of confidence.
+
+**Assuming the model is valid, please explain (by proposing possible theory) and make sense of the sign (direction of the effect) of coefficient estimators before `spdlaw` and `betlaw`.** (2 marks)  
+`spdlaw`'s sign is negative, meaning that if 65 mph speed law is in effect, average total number of accidents decreases keeping all other predictors constant. This is because when drivers are forced to drive at a lower speed, there would be less instances of drivers losing control of their cars due to speeding. Thus, with drivers driving at lower speeds, there will be a reduction in the number of accidents.
+<br>
+`beltlaw`'s sign is positive, meaning that if seatbelt law is in effect, average total number of accidents increases keeping all other predictors constant. This could be due to the perceived safety that seatbelts provide; when drivers are forced to wear seatbelts, they have the mentality that they would be safer when wearing a seatbelt. Thus, they might be more inclined to drive more recklessly as they believe that even if an accident were to happen, they would be safe due to the seatbelts. This would lead to an increase in number of accidents.
+
+**(c) From your regression output alone without checking assumptions, why do you think we need to include the time trend `t` in the regression?** (1 mark)  
+We need to include the time trend t as there would definitely be a long term trend of increasing number of accidents due to more drivers and cars being on the roads each year. It would be quite obvious that number of accidents would increase year-by-year as there are many more new cars and drivers on the road as each year passes. This would prevent any spurious relationships arising from time trend.
+
+**(d) Now let's single out the time series variable `totacc`, the monthly total number of accidents between 1981 and 1989.**  
+```{r ts_obj}
+# define `totacc` as a monthly time series object
+totacc = ts(traffic2$totacc, frequency = 12, start = 1981)
+```
+
+- **Plot the time series `totacc` and describe if the time series `totacc` shows any trend, seasonality or cyclicality. (3 marks)**  
+```{r 3d, echo = TRUE}
+plot.ts(totacc, col = 'darkred')
+
+```
+
+Total Accidents show a long term increasing trend. There is also seasonality as there will be a gradual increase in accidents before having a sharp drop which happens every year.
+
+
+**(e) Following the steps of best practice, identify an ARIMA model for univariate time series `totacc`. Provide justification with your proposed ARIMA model. Ignore the seasonality if any.** (3 marks)
+```{r 3e, echo = TRUE}
+hw = HoltWinters(totacc, gamma=F) # double exponential smoothing, have trend no seasonality
+hw
+```
+
+I used the double exponential smoothing model. Since there is a long term upwards trend and we ignore the seasonality.

@@ -1,0 +1,365 @@
+---
+title: "BT1101 Final Exam"
+author: "Shyamal"
+date: '25 Nov 2020, 5:00 - 7:30 PM'
+output: html_document
+---
+
+## Instructions
+- **Rename your R Markdown file `FA_[MatricNumber].rmd`**, and the output will automatically be `T[X]_[MatricNumber].html`. 
+- Select `output: html_document`.
+- Include all code chunks, so include `echo=TRUE` in all chunks.
+- Replace the placeholder text, "Type your answer here.", with your own.
+- Preinstall and include any `library('package_name')` statements before exam starts. Remember that there is no Internet connection during the exam.
+
+- Please copy and paste the question code from Examplify to this Rmarkdown file in the order of the exam questions.
+- You could code and type your answer in this Rmarkdown file during exam but **keep in mind that you need to copy and paste all your answer (r-chunk and text) into Essay Answer section for each question in Examplify.**
+- Submit your both R Markdown file (.rmd) and HTML (.html) to the folder "Final Exam Submission" in Luminus after Examplify submission and Internet reconnection.
+- This Rmarkdown file serves as a reference. **Only answers submitted in Examplify will be graded.** Zero point will be given for blank submission in Examplify even if you have submitted a complete Rmarkdown/HTML file.
+
+## Preparation
+
+```{r preparation, echo=TRUE, warning = FALSE, message = FALSE}
+
+# descriptive analytics
+library(psych)
+library(rpivotTable)
+library(car)
+library(rcompanion)
+library(Rmisc)
+
+# general use
+library(wooldridge)
+library(dplyr)
+library(tidyr)
+library(knitr)
+library(ggplot2)
+
+# predictive/prescriptive analytics
+library(tseries) 
+library(forecast)
+library(lpSolve)
+
+library(factoextra)
+
+# for any randomness
+set.seed(1)
+
+# for Monte Carlo simulation, sample size set to be 100, e.g.
+n_samples = 100
+```
+
+## Question 1
+
+## Question BT1101- University GPA (total 15 marks)
+ 
+- Data set: `gpa2` in `wooldridge` public data sets.   
+ 
+```{r load-gpa2}
+# load the data set, make sure you already loaded `wooldridge` package
+data(gpa2)
+
+```
+ 
+This data set is from a midsize research university. It has 4137 observations on 12 variables:
+ 
+- `sat`: combined SAT score (includes verbal, writing and maths score)
+- `tothrs`: total hours through fall semest
+- `colgpa`: GPA after fall semester
+- `athlete`: =1 if athlete 
+- `verbmath`: verbal and math SAT score
+- `hsize`: size of high school graduation class, 100s
+- `hsrank`: rank in high school graduation class (where rank 1 is top in the class)
+- `hsperc`: high school percentile, from top (i.e. a value of "10" means "top 10 percent in high school")
+- `female`: =1 if female; =0 if male
+- `white`: =1 if white
+- `black`: =1 if black
+- `hsizesq`: hsize^2
+ 
+ 
+**(a) This dataset comprises 4 demographic variables (`athlete`, `female`, `white`, `black`) on students.**
+ 
+- **i) Create a table to display the frequency of students in the dataset for each category defined by the combination of all 4 variables. You can use a normal table or a pivot table. You may exclude combination(s) with no occurrence in the table.** (1 mark)
+``` {r 1ai,echo=T}
+
+rpivotTable(gpa2 , cols = c("athlete", "female", "white", "black"), aggregatorName = "Count", height = "auto")
+```
+ 
+- **ii) Based on the table in (ai), what is the difference in number of black male athlete students to non-black male athlete students?** (1 mark)
+
+**Type your answer here**  
+  Number of black athlete = 44  
+ NUmber of non-black athlete = 150  
+ Difference = 106  
+ 
+ 
+**(b) There are a few variables that measure the performance of students, namely `sat`, `colgpa`, `verbmath`, `hsrank` and `hsperc`. You may treat these as continuous random variables.** 
+ 
+- **i) The university is interested to know if there is any linear relationship between `colgpa` and high school performance (`sat`, `verbmath`, `hsrank` and `hsperc`). Check this visually as well as with the appropriate statistical measure(s). Interpret your results.** (2 marks)
+**(ensure all graphs are clearly labeled with the appropriate titles and axes names.)**
+
+``` {r 1bi,echo=T}
+plot(gpa2$colgpa , gpa2$sat , main = "Scatterplot of colgpa vs sat")
+plot(gpa2$colgpa , gpa2$verbmath , main = "Scatterplot of colgpa vs verbmath")
+plot(gpa2$colgpa , gpa2$hsrank , main = "Scatterplot of colgpa vs hsrank")
+plot(gpa2$colgpa , gpa2$hsperc , main = "Scatterplot of colgpa vs hsperc")
+print("colgpa vs sat")
+cov(gpa2$colgpa , gpa2$sat)
+cor(gpa2$colgpa , gpa2$sat)
+print("colgpa vs verbmath")
+cov(gpa2$colgpa , gpa2$verbmath)
+cor(gpa2$colgpa , gpa2$verbmath)
+print("colgpa vs hsrank")
+cov(gpa2$colgpa , gpa2$hsrank)
+cor(gpa2$colgpa , gpa2$hsrank)
+print("colgpa vs hsperc")
+cov(gpa2$colgpa , gpa2$hsperc)
+cor(gpa2$colgpa , gpa2$hsperc)
+```
+ 
+ 
+ 
+- **ii) Compute and interpret the 99% prediction interval for `colgpa`.** (2 marks)
+``` {r hypotesting, echo=T}
+plot(density(gpa2$colgpa))
+qqnorm(gpa2$colgpa , ylab = "Sample Qautiles for colgpa")
+qqline(gpa2$colgpa , col = "red")
+shapiro.test(gpa2$colgpa)
+gpa2$colgpa.t = transformTukey(gpa2$colgpa,plotit = T)
+mgpa.t <- mean(gpa2$colgpa.t)
+sdgpa.t <- sd(gpa2$colgpa.t)
+uPI.t <- mgpa.t + (qt(0.995, df = (nrow(gpa2)-1))*sdgpa.t*sqrt(1+1/nrow(gpa2)))
+lPI.t <- mgpa.t - (qt(0.995, df = (nrow(gpa2)-1))*sdgpa.t*sqrt(1+1/nrow(gpa2)))
+cbind(lPI.t,uPI.t)
+
+# reverse transformation
+# y =  x ^ 1.225
+# x = y ^ (1/1.225)
+uPI.t2 <- uPI.t^(1/1.225)
+lpi.t2 <- lPI.t^(1/1.225)
+
+cbind(lpi.t2,uPI.t2)
+
+
+```
+ 
+**Type your answer here**
+ 
+ 
+**(c) Set up and test the following hypotheses:** 
+ 
+- **i) Is the mean `colgpa` for male athlete students different from male non-athlete students?** (1.5 marks)
+
+
+- **ii) Is the proportion of students with a `colgpa` of more than 3.5, less than 12%? Use alpha=0.01** (2.5 marks)
+
+``` {r q1c,echo=T}
+male_ath <- gpa2 %>% 
+        filter(athlete == 1 & female == 0)
+male_non <- gpa2 %>% 
+        filter(athlete == 0 & female == 0)
+
+nrow(male_ath)
+nrow(male_non)
+t.test(male_ath$colgpa , male_non$colgpa)
+
+gpa3.5 <- gpa2 %>% filter(colgpa > 3.5)
+p3.5 <- nrow(gpa3.5) / nrow(gpa2)
+z <- (p3.5- 0.12) / sqrt(0.12*(1-0.12)/nrow(gpa2))
+z
+cv.3.5 <- qnorm(0.01)
+cv.3.5
+z < cv.3.5
+```
+ 
+ 
+**Type your answer here**
+ ci  
+ H0: mean  `colgpa` for male athlete students = male non-athlete students  
+ H1: mean  `colgpa` for male athlete students != male non-athlete students  
+t-value = -6.1728, p-value = 4.353e-09 < 0.05, since the p-value is smaller than 0.05, we have sufficient evidence to reject H0 and conclude statistically that there is significant difference between mean `colgpa` for male athlete students and male non-athlete students
+cii
+let p = proportion of students with a `colgpa` of more than 3.5
+H0: p >= 0.12
+H1: p < 0.12
+From our results (z-statistic = -2.84, z-critical = -2.33), the z statistic is lying in the lower critical region. Thus we have sufficient evidence to reject H0 and accept that the proportion of students with a colgpa more than 3.5 is less than 12% at 1% level of significance.
+ 
+ 
+**d) The university admin office divides the students into 4 categories, along these two demographic variables - `athlete` and `white`.** 
+ 
+- **i) Compare using a graph, the standard deviations of `colgpa` across the different categories of students. Describe your observation from the graph.** (2 marks)
+**(ensure all graphs are clearly labeled with the appropriate titles and axes names.)**
+
+``` {r q1di,echo=T}
+grouped <- gpa2 %>% 
+        group_by(athlete , white) %>% 
+        summarise(sd(colgpa))
+
+library(viridis)
+barplot(grouped$`sd(colgpa)`, main = "SD of colgpa across the 4 categories" , ylab = "sd" , ylim = c(0,0.8) , col = plasma(4),names.arg = c("Non white non athlete" , "White non athlete" , "Non white athlete" , "Non white athlete") , cex.names = 0.8)
+
+```
+
+ 
+- **ii) With the sample data available, what can you conclude about the statement that “the variation of `colgpa` is not the same across the four categories of students”?** (3 marks)
+``` {r vartest ,echo=T}
+category <- c("Non white non athlete" , "White non athlete" , "Non white athlete" , "Non white athlete")
+t1 <- cbind(grouped,category)
+fligner.test(`sd(colgpa)` ~ `...4`, t1)
+
+# p-value > 0.05, thus we cannot reject H0 that the vriances are equal
+# thus we conclude that the variation of the colgpa is not the same across the 4 categories
+
+
+```
+
+## Question 2
+
+P
+Question Code To Be Pasted in Rmarkdown:
+ 
+## Question: Portfolio Mangement (total 15 points)
+Consider you are a portfolio manager in charge of a simple portfolio which is consist of two public traded stocks in Singapore Exchange (SGX) market, 5Xnergy (SGX: 5X) and EverGreen Tech (SGX: EG). The stocks are traded in minimum unit of one share. Given the current and predicted stock prices, the portfolio manager who starts with zero holding, decides the holding positions of the stocks, i.e. the number of shares, at the beginning of a financial year and holds the portfolio for a year. Below is the information about the two stocks:
+ 
+Stock (per share) | Current Price (SGD) | Predicted Price in 1ye (SGD) | Risk (SGD) 
+--- | --- | --- | --- 
+5X | 15.6 | 19.2 | 0.37 
+EG | 3.5 |  21.9 | 18.21 
+ 
+*Risk of a stock is the standard deviation of the predicted price in one year.* Assume that the total risk of the portfolio is a linear combination of risk of the stocks in the portfolio, weighted by the positions, i.e. total risk of a portfolio consisting of $a$ \#shares of 5X and $b$ \#shares of EG is $0.37a + 18.21b$. The total risk of the portfolio should not exceed 50,000 SGD. The portfolio manager is endowed with an investment budget of one million SGD and tries to maximize the total return of the portfolio. 
+ 
+**(a) Write down your decision variables, the objective function, and ALL relevant constraints that apply for this optimization problem in a table formulation. Do NOT solve the problem yet.** (5 points)
+let A = 5X and B = EG  
+return of A: 19.2-15.6 = 3.6  
+return of B: 21.9-3.5 = 18.4
+
+Maximize total return using decision variable A and B | Return = 3.6A + 18.4B  
+:--- | :--- 
+Cost constraint | 15.6A + 3.5B $\leq$ 1000000
+Risk constraint | 0.37A + 18.21B $\leq$ 50000
+Non-negative constraint A | A + $\quad$ $\geq$ 0
+Non-negative constraint B | $\quad$ + B $\geq$ 0
+
+
+**(b) Solve your formulated optimization problem in R. What are the optimal holdings of each stock in your portfolio? What is the optimal total return of the portfolio?** (3 points)
+
+``` {r 2b, echo=TRUE}
+objective.fn <- c(3.6,18.4)
+const.mat <- matrix(
+  c(15.6, 3.5, 
+    0.37, 18.21
+    ), ncol = 2, byrow = T)
+const.dir <- c("<=", "<=")
+const.rhs <- c(1000000 , 50000)
+
+lp.solution <- lp("max", objective.fn, const.mat, const.dir, const.rhs, compute.sens = T)
+lp.solution$solution
+lp.solution
+```
+ The optimal total return is SGD$256276.10 where we need to purchase 63777.269 shares of 5X and 1449.885 shares of EG
+**Type your answer here**
+ 
+ 
+**(c) Predicted price in one year for each stock is a naturally random variable from the current perspective of the portfolio manager. Suppose that predicted price in one year of each stock follows a log-normal distribution with mean $\mu_i$ and $\sigma_i$ where $i = 5X, EG$, provided in the table below.**^[Recall that `rlnorm(n, meanlog, sdlog)` in R generates random numbers from a log-normally distributed variable $X \sim \text{LogNormal}(\mu_X, \sigma_X^2)$ where `meanlog` $=\ln\left(\frac{\mu_X^2}{\sqrt{\mu_X^2 + \sigma_X^2}}\right)$ and `sdlog` $=\sqrt{\ln\left(1 + \frac{\sigma^2_X}{\mu_X^2}\right)}$. $\mu_X$ and $\sigma_X^2$ are the mean and variance of the log-normally distributed $X$, respectively.]
+ 
+Stock | $\mu$ | $\sigma$
+--- | --- | --- 
+5X | 19 | 0.3
+EG | 28 |  20
+ 
+**Use Monte Carlo method to simulate 100 predicted prices in one year for both stocks and answer the following questions.** (2 points)
+ 
+- **What is the simulated standard deviation of predicted price for each stock, i.e. risk of each stock?** (1 point)
+ 
+- **What is the *average* optimal total return of the portfolio?** (3 point)
+ 
+- **What is the probability that the optimal total return of the portfolio is less than 250,000 SGD?** (1 point)
+``` {r qn1d,echo=T}
+
+
+```
+
+
+## Question 3
+
+Question Code To Be Pasted in Rmarkdown:
+## Question: Traffic Laws (total 15 points)
+- Data set: `traffic2` in `wooldridge` public data sets.
+ 
+```{r loaddta}
+data("traffic2")
+```
+ 
+This data set contains 108 monthly time-series observations with 48 variables on state-wide traffic accidents. For this question, the relevant variables are the following:
+ 
+- `year`:                     1981 to 1989
+- `totacc`:                   total number of accidents 
+- `t`:                        time trend
+- `spdlaw`:                   = 1 after 65 mph law in effect
+- `beltlaw`                   = 1 after seatbelt law in effect
+ 
+**(a) Traffic regulation policymaker cares about if law on speeding and wearing seatbelt has effect on the number of road accidents.Using the following four variables `totacc`, `t`, `spdlaw` and `beltlaw` to run a linear regression model to examine the relationship. Report the regression output and write out the *fitted line*.** (4 points)
+
+``` {r qn3a,echo=T}
+lm1 <- lm(totacc ~ t + spdlaw + beltlaw , traffic2)
+summary(lm1)
+re1 <- resid(lm1)
+plot(fitted(lm1) , re1)
+abline(0,0 , col = "red" , lty = 3 , lwd = 3)
+
+```
+SPDlaw reference group: 0 , before 65 mph law in effect  
+SPDlaw Dummy variable: 1 , after 65 mph law in effect  
+Beltlaw reference group: 0 , before seatbelt law in effect
+Beltlaw Dummy variable: 1, after seatbelt law in effect
+  
+Equation of fitted line: total number of accidents = b0 + b1 * time trend + b2 * spdlaw + b3 * beltlaw  
+  
+Intercept of 37034.50 suggest that When time is 0, before 65mph law and seatbelt law is in effect, the number of accident is 37034.50.  
+- The p-value is 2e-16, < 0.05, thus we have sufficient evidence to reject the null hypothesis that the intercept is 0 and conclude that the intercept is statistically significant at the 5% level of confidence.  
+  
+Coefficient of 80.29 for t suggest that before 65mph law and seatbelt law is in effect, when time increase by 1 day, the number of accident increase by 80.29.  
+- The p-value is 5.91e-06 < 0.05 thus we have sufficient evidence to reject the null hypothesis that the intercept is 0 and conclude that the coefficient is statistically significant at the 5% level of confidence.  
+
+ 
+ 
+**(b) Interpret the coefficient estimators before `spdlaw` and `beltlaw`, respectively.** (2 points)  
+ Coefficient of -1318.83 for spdlaw suggest that holding time trend constant, and before seatbelt law is in place, when spdlaw is enforced, the number of accident decreased by -1318.83.  
+ - The p-value is 0.123 > 0.05,  thus we do not have sufficient evidence to reject the null hypothesis that the coefficient is 0. Thus the coefficient is statistically insignificant at the 5% level of confidence.  
+  
+Coefficient of 4076.69 for beltlaw suggest that holding time trend constant and before spdlaw is in place, when beltlaw is enforced, the number of accident increase by 4076.69.  
+- The p-value is 3.23e-05 < 0.05 thus we have sufficient evidence to reject the null hypothesis that the intercept is 0 and conclude that the coefficient is statistically significant at the 5% level of confidence.  
+
+
+**Assuming the model is valid, please explain (by proposing possible theory) and make sense of the sign (direction of the effect) of coefficient estimators before `spdlaw` and `betlaw`.** (2 points)
+
+- After spdlaw is enforced, the cars drives at a slower speed thus the odds of having a accident decreased as the drivers will have more time to react at a slower speed.  
+- After seatbelt law is enforced, the accident increased, this may be due to people becoming complacent and start to drive more recklessly thinking that the seatbet will protect them.  
+ 
+ 
+**(c) From your regression output alone without checking assumptions, why do you think we need to include the time trend `t` in the regression?** (1 points)
+
+Is to see if how the accident will change without at external law and enforcement. If the accident is already decreasing with time, government will not need to step in to enforce law
+ 
+**(d) Now let's single out the time series variable `totacc`, the monthly total number of accidents between 1981 and 1989.**
+```{r ts_obj}
+q3d <- traffic2 %>% 
+        filter(year <= 1989 & year >= 1981)
+```
+- **Plot the time series `totacc` and describe if the time series `totacc` shows any trend, seasonality or cyclicality. (3 points)**
+
+``` {r ts_plot,echo=T}
+ggplot(traffic2 , aes(x = t)) + 
+        geom_line(aes(y = totacc))
+totacc = ts(traffic2$totacc, frequency = 12, start = 1981)
+plot(totacc)
+```
+From the graph, we can see that the graph is non stationary and is trending with time, ie as time goes on the number of accidents increases. So there is positive trend. On the other hand, there does not appear to be any seasonality as the fluctuations do not occur at fixed intervals but there is some cyclicality observed.
+ 
+ 
+**(e) Following the steps of best practice, identify an ARIMA model for univariate time series `totacc`. Provide your justification with your proposed ARIMA model. Ignoring the seasonality if any.**  (3 points)
+
+``` {r ari,echo=T}
+
+```
+

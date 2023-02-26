@@ -1,0 +1,151 @@
+---
+title: "1819 SEM2"
+author: "BT1101 Student. Neo Haowei"
+date: '25 Nov 2021, 1:00 - 3:30 PM'
+output: html_document
+---
+
+## Question List
+### - Q1 : Integer Optimization
+### - Q2 : Statistical Measures ; pnorm/probabilities
+### - Q3 : Not tested
+### - Q4 : Hypothesis Testing, Prediction Intervals
+
+## Preparation
+
+```{r preparation, echo=TRUE, warning = FALSE, message = FALSE}
+
+library('libcoin')
+library("rcompanion") #this package is required for transformTukey function
+library("rstatix")
+library("Rmisc") 
+library("dplyr") #need to call the library before you use the package
+library("tidyr")
+library("rpivotTable")
+library("knitr")
+library("psych")
+library(tidyverse)
+library(ggplot2) 
+library(factoextra) # for fviz_cluster()
+library(lpSolve)
+
+# predictive/prescriptive analytics
+library(tseries) 
+library(forecast)
+library(lpSolve)
+library(TTR)
+
+# descriptive analytics
+library(psych)
+library(Rmisc)
+library(rcompanion)
+library(rpivotTable)
+library(EnvStats) 
+library(car)
+library(rstatix)
+
+# general use
+library(wooldridge)
+library(dplyr)
+library(tidyr)
+library(knitr)
+```
+
+## Some Formulas:
+<p style="color:blue">
+Mean use T-test, Proportion Z-test  
+test statistic z for proportion: (proportion-probability) / sqrt(probability * (1-probability)/n)  
+test statistic t for comparing means: (new mean-old mean)/(sd/sqrt(n))  
+z critical value: qnorm(0.05) # 5% level of significance, one tailed  
+t critical value: qt(0.975,df=n-1)  
+confidence interval for mean: mean +- `test statistic t` * (sd/sqrt(n)) OR use CI()  
+prediction interval: mean +- `test statistic t` * (sd * sqrt(1+(1/n))  
+confidence interval for proportions: p +- `test statistic z`  * (sqrt(p*(1-p)/n)) 
+</p>
+
+
+## Question 1: Integer Optimization
+Maximize sales reach using decision variables $X_1$, $X_2$, $X_3$ | sales = 11$X_1$ + 16$X_2$ + 15$X_3$
+--- | --- 
+Subject to |  
+Prep Constraint | 60$X_1$ + 120$X_2$ + 90$X_3$ $\leq$ 12000
+Assembling constraint | 40$X_1$ + 40$X_2$ + 60$X_3$ $\leq$ 4600
+Packaging constraint | 30$X_1$ + 20$X_2$ + 30$X_3$ $\leq$ 2400
+Integer, Non-negativity Constraints | $X_1$ to $X_3$ all binary, integers and $\geq$ 0
+
+``` {r q1, echo = TRUE}
+
+objective.fn = c(11, 16, 15)
+const.mat = matrix(c(60, 120, 90,
+                     40, 40, 60,
+                     30, 20, 30), ncol=3, byrow=T) # ncol is number of decision variables 
+const.dir = c(rep("<=", 3))
+const.rhs = c(12000, 4600, 2400)
+lp.solution = lp("max", objective.fn, const.mat, const.dir, const.rhs, compute.sens=T, all.int = T)
+lp.solution # gives optimal value of objective function
+lp.solution$solution # gives values of variables needed to achieve d above value
+
+```
+
+To maximize sales, the factory must produce 9 Type A, 85 type B and 14 type C.
+
+## Question 2a: 
+Descriptive: Determine what is each surgeon preferred timeslots and assign accordingly  
+Predictive: Determine which surgeries are likely to happen in each time period  
+Prescriptive: Determine optimal number of OR to run per day   
+
+## Question 2b: 
+``` {r q2b, echo = TRUE}
+#i) 
+pnorm(2.07,1.98,0.06) - pnorm(1.95,1.98,0.06)
+
+#ii) ???
+
+```
+2ai) 62%
+
+
+
+## Question 3: 
+I dont think this is tested
+
+
+
+
+## Question 4b:
+
+**part i)**  
+H0: Average customer service for males = average customer service for females  
+H1: Average customer service for males =/= average customer service for females  
+Using the result of t.test(value~cps$Gender) :  
+Based on the results (t=-0.18455 & p-value = 0.8547>0.05), we do not have sufficient evidence to reject H0. Hence we can conclude that Average customer service for males is the same as average customer service for females.  
+
+**part ii)**  
+H0: Average value for dollar is same across the different "type" of phones.   
+H1: At least one "age group"type" oh phones has a different average value for dollar from the other age groups.  
+
+Since p value of 0.0535>0.05, we do not have sufficient evidence to reject H0. We conclude that there is no true difference between the average value for dollar across the different "type" of phones at the 5% level of significance.
+
+
+## Question 4c:
+22/52 = 42%  
+No, I do not agree that >60% of customers are satisfied(rating 4 or 5) with the signal strength tat they received.  
+
+## Question 4d:
+Confidence Interval: Range of values between value of population parameter believed to be, along with probability that interval correctly estimates the true (unknown) population parameter.  
+Prediction Interval: A range for predicting value of a new observation from same population.  
+While confidence interval is associated with sampling distribution of a statistic, a prediction interval is associated with the distribution of random variable itself.  
+
+``` {r q4d, echo = TRUE}
+
+# prediction interval for signal strength for women respondents
+mnssf <-3.06
+sdssf <- 0.8
+n.bd <- 18
+uPI.age <- mnssf - (qt(0.025, df = (n.bd-1))*sdssf*sqrt(1+1/n.bd)) # calculating for 95% interval     # 0.05/2 = 0.025 in the formula
+lPI.age <- mnssf + (qt(0.025, df = (n.bd-1))*sdssf*sqrt(1+1/n.bd))
+cbind(lPI.age, uPI.age)
+
+```
+
+The 95% prediction interval for signal strength for women respondents is [1.325896, 4.794104]. Given the observed signal strength for women respondents, the signal strength of a new women respondents will lie within this interval with a 95% level of confidence. With repeated sampling, 95% of such constructed predictive intervals would contain the new signal strength for a new women respondent.

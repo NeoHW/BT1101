@@ -1,0 +1,199 @@
+---
+title: "1819 SEM1"
+author: "BT1101 Student. Neo Haowei"
+date: '25 Nov 2021, 1:00 - 3:30 PM'
+output: html_document
+---
+
+## Question List
+### - Q1 : (1a)SMA, Mean Square Error ; (1b) exponential smoothing table using RMSE
+### - Q2 : Linear Optimization
+### - Q3 : Prediction Interval VS Confidence Interval
+### - Q4 : Descriptive Analytics, Compute Confidence Interval, Hypothesis Testing
+
+## Preparation
+
+```{r preparation, echo=TRUE, warning = FALSE, message = FALSE}
+
+library('libcoin')
+library("rcompanion") #this package is required for transformTukey function
+library("rstatix")
+library("Rmisc") 
+library("dplyr") #need to call the library before you use the package
+library("tidyr")
+library("rpivotTable")
+library("knitr")
+library("psych")
+library(tidyverse)
+library(ggplot2) 
+library(TTR)
+library(factoextra) # for fviz_cluster()
+library(lpSolve)
+
+# predictive/prescriptive analytics
+library(tseries) 
+library(forecast)
+library(lpSolve)
+
+# descriptive analytics
+library(psych)
+library(Rmisc)
+library(rcompanion)
+library(rpivotTable)
+library(EnvStats) 
+library(car)
+library(rstatix)
+
+# general use
+library(dplyr)
+library(tidyr)
+library(knitr)
+```
+
+## Some Formulas:
+<p style="color:blue">
+Mean use T-test, Proportion Z-test  
+test statistic z for proportion: (proportion-probability) / sqrt(probability * (1-probability)/n)  
+test statistic t for comparing means: (new mean-old mean)/(sd/sqrt(n))  
+z critical value: qnorm(0.05) # 5% level of significance, one tailed  
+t critical value: qt(0.975,df=n-1)  
+confidence interval for mean: mean +- `test statistic t` * (sd/sqrt(n)) OR use CI()  
+prediction interval: mean +- `test statistic t` * (sd * sqrt(1+(1/n))  
+confidence interval for proportions: p +- `test statistic z`  * (sqrt(p*(1-p)/n)) 
+</p>
+
+
+# Question 1 : RMSE & Holts Winter (Unsure Ans)
+``` {r q1, echo = TRUE}
+#1a
+week <- c(1,2,3,4,5,6,7,8,9,10)
+packs_sold <- c(13,17,32,33,31,33,36,36,37,39)
+df <- data.frame(week,packs_sold)
+
+#find best value for k to give smallest root mean squared error
+for(k in 1:10) {
+  df$packs_soldSMA<- dplyr::lag(SMA(df$`packs_sold`, n=k),1)
+  print(k)
+  print(sqrt(mean((df$packs_soldSMA - df$`packs_sold`)^2,na.rm=T)))
+}
+# 4 has smallest RMSE
+df$soldSMA4 <- dplyr::lag(SMA(df$`packs_sold`, n=4),1)
+df$soldSMA4
+
+#1b
+
+## Creating training & testing set
+dfMain <- df[1:7,]
+dfHeldout <- df[8:10,]
+
+hwcorrect <- HoltWinters(df$`packs_sold`,gamma=F)
+hwcorrect_pred <- predict(hwcorrect,n.ahead = 1 )
+plot(hwcorrect)
+hwcorrect_pred # ans here
+
+for(k in c(0.2,0.4,0.6,0.8)) {
+  hw1 <- HoltWinters(dfMain$`packs_sold`,alpha=k,gamma=F)
+  hw1_pred <- predict(hw1,n.ahead = 3)
+  print(k)
+  print(sqrt(mean((hw1_pred-dfHeldout$`packs_sold`)^2,na.rm = T)))
+}
+
+
+
+```
+
+Using the SMA model, we lag the data by 1-10 so that we can use data from the past k weeks to predict the data for the k+1th week. From there, we find out that from values of [1:10], k=4 gives the smallest root mean squared error. This means that we use data from the past 4 weeks to predict the number of milk tins sold for the next week. The forecast for week 11 would thus be the sum of sales from weeks 7-10 divided by 4 = 37.  
+
+We first create two data sets, one for weeks 1-7, and another for weeks 8,9,10 to be used as our test case. Using the data from weeks 1-7, we apply a Holt Winters model with different smoothing constants. We then use this model to predict the sales volume for weeks 8-10. Using this prediction and the actual data from weeks 8-10, we calculate the RMSE and find the smoothing constant which gives the smallest RMSE. We then use this smoothing constant to predict the sales volume for week 11, which would be 43.
+
+
+# Question 2 : Linear Optimization
+
+Maximize total drones using decision variables $X_1$, $X_2$, $X_3$ respectively  | Drones = $X_1$ + $X_2$ + $X_3$
+--- | --- 
+Subject to |  
+Camera Constraint | 3$X_1$ + 2$X_2$ + 1$X_3$ $\leq$ 200
+LED bulbs Constraint | $\quad$ + 2$X_2$ + 4 $X_3$ $\leq$ 400
+Motor Constraint |  2$X_1$ + 1$X_2$ + 1$X_3$ $\leq$ 900
+Batteries Constraint | 2$X_1$ + 2$X_2$ + 2$X_3$ $\leq$ 252
+Non-Negativity Constraint 1 | $X_1$ + $\quad$ + $\quad$ $\geq$ 0
+Non-Negativity Constraint 2 | $\quad$ + $X_2$ + $\quad$ $\geq$ 0
+Non-Negativity Constraint 3 | $\quad$ + $\quad$ +$X_3$ $\geq$ 0
+Binary, Integer, Non-negativity Constraints | $X_1$ to $X_3$ all binary, integers and $\geq$ 0
+
+
+
+``` {r q2-lp, echo = TRUE}
+
+objective.fn = c(1, 1, 1)
+const.mat = matrix(c(3, 2, 1,
+                     0, 2, 4,
+                     2, 1, 1,
+                     2, 2, 2), ncol=3, byrow=T) # ncol is number of decision variables 
+const.dir = c(rep("<=", 4))
+const.rhs = c(200,400,900,252)
+lp.sol = lp("max", objective.fn, const.mat, const.dir, const.rhs, all.int = T, compute.sens=T)
+
+lp.sol # gives optimal value of objective function
+lp.sol$solution # gives values of variables needed to achieve d above value
+
+
+
+
+```
+
+Given the resources, a maximum of 126 drones can be produced.  
+The optimal production plan to maximize number of drones is X1 = 0, X2 = 74, X3 = 52. That is, produce 0 Stealth drones, 74 standard drones and 52 lightweight drones.  
+
+
+# Question 3: PI vs CI
+**3a:**  
+value-driven:   
+technology-driven:  
+<br>
+**3b:** Comparing Prediction interval and Confidence Interval  
+Confidence Interval: Range of values between value of population parameter believed to be, along with probability that interval correctly estimates the true (unknown) population parameter.  
+Prediction Interval: A range for predicting value of a new observation from same population.  
+While confidence interval is associated with sampling distribution of a statistic, a prediction interval is associated with the distribution of random variable itself.  
+Example: As a worker in a basketball making factory, I take 100 balls, drop them from the second floor and measure the mean bounce. The **95% confidence interval** for the mean bounce is 110-120cm. Thus, i can say that **I am 95% confident that the mean bounce height of all the basketballs (entire population from one plant) falls in this range**.  
+Now suppose, using a linear regression model and given specific values of independent variables like rubber material, stitching type, we train the model and it gives a **prediction interval** of 105-125cm. **We can now be 95% confident that the bounce height of the next basketball produced with the same settings will lie in this range.**  
+In prediction intervals, we are predicting an individual value rather than the mean, so there's greater uncertainty involved. Thus, a prediction interval is always wider than a confidence interval.
+
+
+
+# Question 4
+**4a:**  
+Gender, Prior call center Experience, College Degree : Categorical   
+Age: Ratio  
+Length of Service: Ratio  
+<br>
+**4b:**  
+Average length of service is longer for females. According to fig 4.4 : where group = 0 (females), mean length of service is 2.01 compared to 1.76 where group = 1(males). Mean length of service is 2.01-1.76=0.25 higher for females.  
+According to Fig4.9: t.test between length of service and gender:  
+Based on the results (t=0.98044 & p-value=0.3306(>0.05)), we do not have sufficient evidence to reject H0. Hence our sample data does not provide sufficient evidence to accept that there is a significant different in average length of service between the 2 genders at the 5% level of significance.  
+<br>
+**4c:**  
+The statistical analysis that was conducted in Fig 4.6 is correlation test, to check if starting age is correlated to length of service. According to the test, the correlation matrix value = -0.61 suggests that there is a moderate negative linear relationship between starting age and length of service.  
+The p-value = 0(<0.05), there is insufficient evidence to reject null hypothesis so data is correlated.  
+<br>
+**4d:**  
+``` {r q4d, echo = TRUE}
+#AvgLengthOfService <- ccd %>% group_by(gender,`college Degree`, `Prior Call Center Experience`) %>% summarise(meanLengthOfService = mean(`Length of Service (years)`)) %>% mutate(across(where(is.numeric), round, 2))
+#kable(AvgLengthOfService, caption = "Average Length Of Service by gender, college degree and prior center experience")
+
+```
+**4e:**  
+``` {r q4e, echo = TRUE}
+# Compute 95% CI for mean length of service(years) of employees without prior call center experience
+
+uCI95 <- 1.986747 - qt(0.025, df=70-1)*0.885/sqrt(70) # 0.885 = (1.71+0.88+0.43+0.52)/4
+lCI95 <- 1.986747 + qt(0.025, df=70-1)*0.885/sqrt(70)
+print(cbind(lCI95, uCI95), digits=3)
+
+```
+The 95% CI for mean length of service(years) of employees without prior call center experience is [1.78, 2.20]. We are 95% "confident" that the interval [1.78, 2.20] contains the true population mean; that with repeated sampling, there is 95% probability that the interval correctly estimates the true population mean.  
+**4f:**  
+H0: Average length of service (years) for employees with college degrees = Average length of service (years) for employees without college degrees  
+H1: Average length of service (years) for employees with college degrees =/= Average length of service (years) for employees without college degrees  
+According to Fig4-9: t.test(ccd\$`length of Service(years)` ~ ccd\$`college Degree`)  
+Based on the results (t=-2.5204 & p-value=0.01407<0.05), we have sufficient evidence to reject H0 and can accept that the average length of service(years) for employees with college degrees is significantly different from average length of service (years) for employees without college degrees at the 5% level of significance.  

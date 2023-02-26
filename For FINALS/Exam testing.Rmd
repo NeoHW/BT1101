@@ -1,0 +1,50 @@
+---
+title: "Exam Testing"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# load required packages 
+# library("xxxx")
+library("Rmisc") # For computation of CI, summarySE (plotting of error bar)
+library("tidyr") #spread, gather etc
+library("rpivotTable")
+library("knitr") #knitting
+library("psych") #describe, corr.test()
+library(readxl)
+library(viridis)
+library("rcompanion") #this package is required for transformTukey function
+library("rstatix") # for Welch ANOVA & Games Howell test
+library("dplyr") #need to call the libary before you use the package
+library("TTR") #SMA
+library(tsbox) #change df to ts model
+library(ggplot2)
+#car :: vif () #check for multicollinearity
+#dplyr :: lag #for time series forcasting
+```
+
+## Some Formulas:
+<p style="color:blue">
+Mean use T-test, Proportion Z-test  
+test statistic z for proportion: (proportion-probability) / sqrt(probability * (1-probability)/n)  
+test statistic t for comparing means: (new mean-old mean)/(sd/sqrt(n))  
+z critical value: qnorm(0.05) # 5% level of significance, one tailed  
+t critical value: qt(0.975,df=n-1)  
+confidence interval for mean: mean +- `test statistic t` * (sd/sqrt(n)) OR use CI()  
+prediction interval: mean +- `test statistic t` * (sd * sqrt(1+(1/n))  
+confidence interval for proportions: p +- `test statistic z`  * (sqrt(p*(1-p)/n)) 
+
+Finding probability : pnorm()
+</p>
+
+
+```{r testing}
+40.97045 - (qt(0.05, df = 199*20.32906*sqrt(1+1/200)))
+40.97045 + (qt(0.05, df = 199*20.32906*sqrt(1+1/200)))
+
+
+
+
+```
+
+

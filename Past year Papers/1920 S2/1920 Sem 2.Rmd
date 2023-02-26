@@ -1,0 +1,370 @@
+---
+title: "1920 Sem 2"
+author: "BT1101 Student. Neo Haowei"
+date: '19 Nov 2021, 1:00 - 3:30 PM'
+output: html_document
+---
+
+## Question List
+### - Q1 : Statistical Measures, Probability distributions, Hypo testing
+### - Q2 : Linear Regression
+### - Q3 : Integer Optimization
+
+## Preparation
+
+```{r preparation, echo=TRUE, warning = FALSE, message = FALSE}
+
+library('libcoin')
+library("rcompanion") #this package is required for transformTukey function
+library("rstatix")
+library("Rmisc") 
+library("dplyr") #need to call the library before you use the package
+library("tidyr")
+library("rpivotTable")
+library("knitr")
+library("psych")
+library(tidyverse)
+library(ggplot2) 
+library(factoextra) # for fviz_cluster()
+library(lpSolve)
+
+# predictive/prescriptive analytics
+library(tseries) 
+library(forecast)
+library(lpSolve)
+library(TTR)
+
+# descriptive analytics
+library(psych)
+library(Rmisc)
+library(rcompanion)
+library(rpivotTable)
+library(EnvStats) 
+library(car)
+library(rstatix)
+
+# general use
+library(wooldridge)
+library(dplyr)
+library(tidyr)
+library(knitr)
+```
+
+## Some Formulas:
+<p style="color:blue">
+Mean use T-test, Proportion Z-test  
+test statistic z for proportion: (proportion-probability) / sqrt(probability * (1-probability)/n)  
+test statistic t for comparing means: (new mean-old mean)/(sd/sqrt(n))  
+z critical value: qnorm(0.05) # 5% level of significance, one tailed  
+t critical value: qt(0.975,df=n-1)  
+confidence interval for mean: mean +- `test statistic t` * (sd/sqrt(n)) OR use CI()  
+prediction interval: mean +- `test statistic t` * (sd * sqrt(1+(1/n))  
+confidence interval for proportions: p +- `test statistic z`  * (sqrt(p*(1-p)/n)) 
+</p>
+
+
+## Question 1: CEO Salaries
+Context: Use data(‘ceosal1’). This is a data set from a 1991 issue of Business Week of CEO’s salaries in 1990.  
+
+The data.frame has 209 observations on 12 variables: 
+
+- `salary`: 1990 salary, thousands $ 
+- `pcsalary`: percent change salary, 1989-1990 
+- `sales`: 1990 firm sales, millions $ 
+- `roe`: return on equity, 1988-1990 avg 
+- `pcroe`: percent change roe, 1988-1990
+- `ros`: return on firm’s stock, 1988-1990
+- `indus`: =1 if industrial firm 
+- `finance`: =1 if financial firm
+- `consprod`: =1 if consumer product firm 
+- `utility`: =1 if transport or utilities 
+- `lsalary`: natural log of salary 
+- `lsales`: natural log of sales
+    
+Each observation represents a CEO's salary with its respective firm characteristics. As a business analytics analyst, you are tasked to conduct the required analyses and present your findings according to the questions below. 
+
+``` {r read-data, echo = TRUE}
+data('ceosal1')
+CS<-ceosal1
+```
+<p>
+
+#### Q1.(a) Plot a histogram for `salary`. What can you deduce about the distribution of CEO salaries from this histogram? (2 mark)
+
+``` {r q1, echo = TRUE }
+summary(CS)
+salary.hist <- hist(CS$salary, main="Histogram of CEOs salary", xlab="CEO salaries", ylab="No. of CEOs", col=c("lightsalmon"), xlim=c(0,20000), ylim=c(0,220), labels=TRUE)
+
+```
+<p style="color:blue">
+From this histogram, it does not look like a normal distribution as it does not follow a bell shape. Majority of the CEOs earn between \$0 to \$4,000 thousand range. Out of 209 CEOs, 205 CEOs earn between 0 to 4000 thousand. The distribution is right-skewed. There also seems to be 2 outliers earning between 10000 thousands to 16000 thousands from the histogram.
+</p>
+
+#### Q1.(b) In the past, the proportion of CEO with salary greater than $1 million has averaged around 0.50 (i.e. population proportion for `salary` >= 1million is 0.50). Based on the sample in this dataset, is there sufficient evidence (at 5% level of significance) to conclude that the population proportion for salary being greater than  $1million is equal to 0.5? State your hypotheses, conduct the hypotheses test and provide conclusions. (5 marks)
+
+```{r 1b, echo=TRUE}
+
+# 1,000,000 = 1,000 thousands
+
+salmil <- CS %>% filter(salary>1000)
+psalmil <- nrow(salmil)/nrow(CS)
+z <- (psalmil - 0.50) / sqrt(0.50*(1-0.50)/nrow(CS)) # compute z-statistic for proportion
+z
+lcv.salmil <- qnorm(0.05) # compute lower critical value
+lcv.salmil
+ucv.salmil <- qnorm(0.95) # compute upper critical value
+ucv.salmil
+
+
+```
+
+<p style="color:blue">
+H0: proportion of CEO with salary greater than $1 million = 0.50  
+H1: proportion of CEO with salary greater than $1 million =/= 0.5  
+<br>
+Since we are conducting a two-tailed test and the z value= 0.622543 (not <-1.644854 and not >1.644854), we do not have sufficient evidence to reject H0 as the z value does not fall within the rejection region. We conclude that the population proportion for salary being greater than $1 million is equal to 0.5.  
+</p>
+
+#### Q1.(c) You are tasked to explore if CEO salaries vary across firm types.
+(i) First, create a variable `firm` and label it as “1” if it is an industrial firm, “2” if it is a financial firm, “3” if it is a consumer product firm, and “4” if it is a transport or utilities firm. (1 mark)  
+(ii) Now, conduct the appropriate test(s) to assess if the mean CEO salary is significantly different across firm type. Present your hypotheses, the results and conclusions. (5 marks)  
+
+```{r 1c, echo=TRUE}
+#ci
+CS<- CS %>% mutate(firm = ifelse(indus == 1, "1", ifelse(finance == 1, "2", ifelse(consprod == 1, "3","4"))))
+#cii
+wa.out <- CS %>% welch_anova_test(salary ~ firm)
+gh.out <- games_howell_test(CS, salary ~ firm)
+wa.out
+gh.out
+```
+
+<p style="color:blue">
+H0: mean CEO salary is same across firms of the four different types.  
+H1: at least one firm type has a different mean CEO salary from the other types of firms.  
+<br>
+Since p-value = 5.66e-07(<0.05), we have sufficient evidence to reject H0. We conclude at least one firm type has a different mean CEO salary from the other types of firms.
+<br>
+From Games Howell test, pairs 1:4, pairs 2:4 and 3:4 are significantly different from the rest as their p-values are <0.05. Thus, I can conclude that the mean CEO salary for transport or utilities firms has a significantly different mean CEO salary from the rest of the firms.
+</p>
+
+## Question 2: Savings
+This data set contains 100 observations with following variables:
+- `sav`: annual savings, $
+- `inc`: annual income, $
+- `size`: family size
+- `educ`: years education, household head
+- `age`: age of household head
+- `black`: =1 if household head is black
+- `cons`: annual consumption, $
+
+```{r load 2, echo=TRUE}
+# load the data set, make sure you already load `wooldridge` package
+data(saving)
+SV <- saving
+summary(SV)
+```
+
+#### Q2.(a) It is interesting to explain the individual saving sav from various explanatory variables.
+• Run a linear regression model of sav ~ inc + cons, report the regression output and write out
+the fitted line. (2 points)  
+• Interpret the intercept as well as the coefficients before inc and cons. (3 points)  
+• Can we use sav, cons and inc altogether as explantory variables in linear regression? Why or why not? (2 points)  
+
+```{r 2a, echo=TRUE}
+fit1 = lm(sav ~ inc + cons, SV)
+summary(fit1)
+```
+
+<p style="color:blue">
+The fitted line is savings = 1.099e-11 + 1 * inc - -1 * cons  
+Intercept(b0) value = 1.099e-11, suggests average savings of a household with 0 income and with 0 consumption is 1.099e-11.  
+<br>
+Coefficient of `inc` = 1. Every unit increase of annual income is increases the average savings by 1 given all other predictors constant.
+The p-value=<2e-16 is very small,(< 0.05), thus we have sufficient evidence to reject the null hypothesis that the intercept is 0 and conclude that the slope parameter is statistically significant at the 5% level of confidence.
+<br>
+Coefficient of `cons` = -1. Every unit increase of consumption decreases the average savings by 1 given all other predictors constant.
+The p-value=<2e-16 is very small,(< 0.05), thus we have sufficient evidence to reject the null hypothesis that the intercept is 0 and conclude that the slope parameter is statistically significant at the 5% level of confidence.
+</p>
+We cannot use them as explanatory variables. Multicollinearity occurs when two or more regressors are highly correlated with each other. In this case, inc - cons = saving. Thus, it is difficult to estimate the errors, which leads to inflated estimates of errors. Also, coefficient for inc and cons are merely definitions of annual income and annual consumption. They are not useful in determining relationships between saving and other regressors.
+</p>
+
+#### Q2.(b) Some labor economists believe that individual consumption is affected not only by income but by his or her education level nonlinearly as well. Let’s first create the following variable educsq which is equal to square of educ.
+• Investigate the relationship between cons and inc visually. Is there a linear relationship between the two? (1 point)
+• Run and report a linear regression of inc, educ and educsq to explain cons. What’s the marginal effect of education on consumption for those individuals’ education level being 6 year? Interpret this marginal effect. (3 points)
+
+```{r 2b, echo=TRUE}
+# Create the following variable educsq which is equal to square of educ.
+SV$educsq = SV$educ^2
+
+# Scatterplot
+plot(SV$cons, SV$inc, main="Scatterplot of cons vs inc", xlab="consumption", ylab="income", pch=18) 
+
+#do not reject and take out these data as it is normal for a household to earn and spend more than other households due to different family size and lifestyle.
+#however, take out these values where consumption is negative as it is impossible for consumption to be negative. These values might be recording error.
+
+SV_clean <- SV %>% filter(cons >0)
+# Scatterplot to check again
+plot(SV_clean$cons,SV_clean$inc, main="Scatterplot of annual consumption vs annual income", xlab="Consumption", ylab="Income", pch=18)
+ 
+
+# Run and report a linear regression of inc, educ and educsq to explain cons
+fit2 = lm(cons ~ inc + educ +educsq , SV_clean)
+summary(fit2)
+```
+
+<p style="color:blue">
+Part 1 :  
+From the scatterplot above, there is a linear relationship between income and consumption.  
+<br>
+Part 2:  
+The marginal effect of education on consumption for those individuals’ education level is 74.34083 - 2 x 2.71714 x educ.  When educ = 6, the marginal effect of education on consumption = 74.34083 - 2(2.71714(6)) = 41.73515.  
+This means that when individuals’ education level is 6 years, average consumption will increase by 41.73515, ceteris paribus.  
+</p>
+
+
+#### Q2.(c) From the regression output in part (b), - Is there a nonlinear relationship between education and consumption? Why or why not? (1 points) - Check the assumptions and discuss what you find. Which assumption(s) are you worry about? (3 points)
+
+##### Not sure!
+```{r 2c, echo=TRUE}
+plot(SV$educ, SV$cons, main="Scatterplot of educ vs cons", xlab="education", ylab="consumption", pch=18)
+
+```
+
+<p style="color:blue">
+The data shows little evidence that there exists such non-linear relationship between education and consumption as educsq is statistically insignificant with p-value larger than the conventional cutoffs. (p-value = 0.816 > 0.05)
+<br>
+Assumption:Linear relationship between DV and IV;No outliers;Normally-distributed errors  
+There seems to be an outlier where consumption is -10000. I am concerned about this as it would skew a normal distribution. (resolved using clean dataset)
+</p>
+
+
+## Question 3: Linear Optimization
+
+
+#### Q3(a) Write down your decision variables, the objective function, and ALL constraints that apply for this optimization problem in a table. You do not need to solve the problem for now. (5 points)
+
+Minimize total cost using decision variables $X_1$, $X_2$, $X_{11}$, $X_{12}$, $X_{21}$ | Cost = 499 $X_1$ + 450$X_2$ + 1099$X_{11}$ + 627$X_{12}$ + 100$X_{21}$
+--- | --- 
+Subject to |  
+Motherboard CPU Constraint | $X_1$ + $X_2$ + $\quad$ + $\quad$ + $\quad$ = 1
+Motherboard GPU Constraint | $\quad$ + $\quad$ + $X_{11}$ + $X_{12}$ + $\quad$ $\leq$ 2
+Motherboard RAM Constraint | $\quad$ + $\quad$ + $\quad$ + $\quad$ + $X_{21}$ $\leq$ 4
+Motherboard RAM Constraint | $\quad$ + $\quad$ + $\quad$ + $\quad$ + $X_{21}$ $\geq$ 1
+Intel i9 Stock Constraint | $X_1$ + $\quad$ + $\quad$ + $\quad$ + $\quad$ $\leq$ 1
+AMD Ryzen Stock Constraint | $\quad$ + $X_2$  + $\quad$ + $\quad$ + $\quad$ $\leq$ 1
+Nvidia RTX 2080 Stock Constraint | $\quad$ + $\quad$ + $X_{11}$ + $\quad$ + $\quad$ $\leq$ 1
+AMD Radeon 56 Stock Constraint | $\quad$ + $\quad$ + $\quad$ + $X_{12}$ + $\quad$ $\leq$ 3
+8G RAM card Stock Constraint | $\quad$ + $\quad$ + $\quad$ + $\quad$ + $X_{21}$ $\leq$ 8
+Performance Constraint | 20$X_1$ + 18$X_2$ + 90$X_{11}$ + 75$X_{12}$ + 10$X_{21}$ $\geq$ 144
+Integer, Non-negativity Constraints | $X_1$ to $X_{21}$ all integers and $\geq$ 0
+
+#### Q3(b) Your trustworthy shop specialist strongly recommended if you choose to get the Nvidia RTX 2080 GPU, your PC needs at least 16GB of RAM. 
+• Write down the constraint in its math expression. (2 points)  
+• As you decide to follow the specialist’s suggestion, solve this problem in R. Which part(s) should you purchase to assemble your gaming PC? How much do you spend on it? (4 points)  
+
+2080 GPU 16GB Ram Constraint | 0.5$x_{21}$ -$x_{11}$ $\geq$ 0
+or  2$x_{21}$ -$x_{11}$ $\geq$ 0 ?
+
+##### New table
+Minimize total cost using decision variables $X_1$, $X_2$, $X_{11}$, $X_{12}$, $X_{21}$ | Cost = 499 $X_1$ + 450$X_2$ + 1099$X_{11}$ + 627$X_{12}$ + 100$X_{21}$
+--- | --- 
+Subject to |  
+Motherboard CPU Constraint | $X_1$ + $X_2$ + $\quad$ + $\quad$ + $\quad$ = 1
+Motherboard GPU Constraint | $\quad$ + $\quad$ + $X_{11}$ + $X_{12}$ + $\quad$ $\leq$ 2
+Motherboard RAM Constraint | $\quad$ + $\quad$ + $\quad$ + $\quad$ + $X_{21}$ $\leq$ 4
+Motherboard RAM Constraint | $\quad$ + $\quad$ + $\quad$ + $\quad$ + $X_{21}$ $\geq$ 1
+Intel i9 Stock Constraint | $X_1$ + $\quad$ + $\quad$ + $\quad$ + $\quad$ $\leq$ 1
+AMD Ryzen Stock Constraint | $\quad$ + $X_2$  + $\quad$ + $\quad$ + $\quad$ $\leq$ 1
+Nvidia RTX 2080 Stock Constraint | $\quad$ + $\quad$ + $X_{11}$ + $\quad$ + $\quad$ $\leq$ 1
+AMD Radeon 56 Stock Constraint | $\quad$ + $\quad$ + $\quad$ + $X_{12}$ + $\quad$ $\leq$ 3
+8G RAM card Stock Constraint | $\quad$ + $\quad$ + $\quad$ + $\quad$ + $X_{21}$ $\leq$ 8
+Performance Constraint | 20$X_1$ + 18$X_2$ + 90$X_{11}$ + 75$X_{12}$ + 10$X_{21}$ $\geq$ 144
+2080 GPU 16GB Ram Constraint | $\quad$ + $\quad$ -$X_{11}$ + $\quad$ + 0.5(or isit 2?)$X_{21}$ $\geq$ 0 
+Integer, Non-negativity Constraints | $X_1$ to $X_{21}$ all integers and $\geq$ 0
+
+```{r 3b, echo=TRUE}
+
+## integer optimisation
+objective.fn <- c(499,450,1099,627,100)
+const.mat = matrix(c(# Constraint 1: Motherboard constraint
+                     rep(1,2),rep(0,3),
+                     rep(0,2),rep(1,2),rep(0,1),
+                     rep(0,4),rep(1,1),
+                     rep(0,4),rep(1,1),
+                     # Constraint 2: Stock constraint
+                     1,0,0,0,0,
+                     0,1,0,0,0,
+                     0,0,1,0,0,
+                     0,0,0,1,0,
+                     0,0,0,0,1,
+                     # Constraint 3: Performance constraint
+                     20,18,90,75,10,
+                     # Constraint 4: 2080 GPU 16GB Ram Constraint
+                     0,0,-1,0,0.5
+                     ), ncol = 5, byrow = TRUE)
+const.dir = c('=', rep('<=', 2), '>=', rep('<=', 5), rep('>=', 2))
+const.rhs = c(1,2,4,1,1,1,1,3,8,144,0)
+# solving the linear problem
+lp.solution = lp(direction = 'min', objective.fn, 
+              const.mat, const.dir, const.rhs,all.int = T, # all.int = T means all are integers 
+              compute.sens = TRUE)
+
+lp.solution$solution
+print(lp.solution)
+
+```
+
+<p style="color:blue">
+Minimum cost is $1804 , this could be achieved by purchasing one AMD Ryzen, 2 AMD Radeon 56 and 1 8G RAM card.  
+</p>
+
+#### Q3(c) Now suppose that the price for Nvidia RTX 2080 GPU is uncertain, fluctuating ±55% uniformly based on the current price. You have a budget and thus can pay at most $1500 for your new PC. What’s the prbability that you are not able to get the PC you want at the moment?
+
+Assuming you need to get RTX 2080
+```{r 3c1, echo=TRUE}
+
+## integer optimisation
+objective.fn <- c(499,450,1099,627,100)
+const.mat = matrix(c(# Constraint 1: Motherboard constraint
+                     rep(1,2),rep(0,3),
+                     rep(0,2),rep(1,2),rep(0,1),
+                     rep(0,4),rep(1,1),
+                     rep(0,4),rep(1,1),
+                     # Constraint 2: Stock constraint
+                     1,0,0,0,0,
+                     0,1,0,0,0,
+                     0,0,1,0,0,
+                     0,0,0,1,0,
+                     0,0,0,0,1,
+                     # Constraint 3: Performance constraint
+                     20,18,90,75,10,
+                     # Constraint 4: 2080 GPU 16GB Ram Constraint
+                     0,0,-1,0,0.5,
+                     # Assuming you need to get RTX 2080
+                     0,0,1,0,0
+                     ), ncol = 5, byrow = TRUE)
+const.dir = c('=', rep('<=', 2), '>=', rep('<=', 5), rep('>=', 2), '=')
+const.rhs = c(1,2,4,1,1,1,1,3,8,144,0,1)
+# solving the linear problem
+lp.solution = lp(direction = 'min', objective.fn, 
+              const.mat, const.dir, const.rhs,all.int = T, # all.int = T means all are integers 
+              compute.sens = TRUE)
+
+lp.solution$solution
+print(lp.solution)
+
+```
+
+```{r 3c2, echo=TRUE}
+
+pnorm(650, 1099, 1099*0.55, lower.tail = FALSE)
+
+```
+
+Price of RTX 2080 for total cost to be <1500 : 1500 - 450 - 4*100 = 650  
+Assuming that price of RTX 2080 is normally distributed,  
+Finding probability that price of RTX 2080 is more than 650: 0.7712059  
+
+
+

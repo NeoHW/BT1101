@@ -1,0 +1,427 @@
+---
+title: "BT1101 AY22/23 S1 Exam"
+author: "BT1101 Student. A0264683U"
+date: '24 Nov 2022, 9:00 - 11:30AM'
+output: html_document
+---
+
+## Instructions
+- **Rename your R Markdown file `FE_Student#.rmd`**, replacing Student# with your Student number that starts with A (e.g. A0202020) and the output will automatically be `FE_Student#.html`. 
+- Select `output: html_document`.
+- Include all code chunks, so include `echo=TRUE` in all chunks.
+- Replace the placeholder text, "Type your answer here.", with your own.
+- Pre-install and include any `library('package_name')` statements before exam starts. Remember that there is NO Internet connection during the exam.
+
+- Code and type your answer in this Rmarkdown file during exam but **keep in mind that you need to copy and paste all your answer (r-chunk and text) into Essay Answer section for each question in Examplify.**
+- Submit both R Markdown file (.rmd) and HTML (.html) to the folder "Final Exam Submission" in CANVAS after Examplify submission and Internet reconnection.
+- This Rmarkdown file serves as a reference. **Only answers submitted in Examplify will be graded.** Zero point will be given for blank submission in Examplify even if you have submitted a complete Rmarkdown/HTML file.
+
+## Preparation
+
+```{r preparation, echo=TRUE, warning = FALSE, message = FALSE}
+
+library('libcoin')
+library("rcompanion") #this package is required for transformTukey function
+library("rstatix")
+library("Rmisc") 
+library("dplyr") #need to call the library before you use the package
+library("tidyr")
+library("rpivotTable")
+library("knitr")
+library("psych")
+library(tidyverse)
+library(ggplot2) 
+library(TTR)
+library(factoextra) # for fviz_cluster()
+library(lpSolve)
+
+# predictive/prescriptive analytics
+library(tseries) 
+library(forecast)
+library(lpSolve)
+
+# descriptive analytics
+library(psych)
+library(Rmisc)
+library(rcompanion)
+library(rpivotTable)
+library(EnvStats) 
+library(car)
+library(rstatix)
+
+# general use
+library(wooldridge)
+library(dplyr)
+library(tidyr)
+library(knitr)
+```
+
+## Question 1: CO2 Emissions (15 marks)
+Context: This dataset comprises CO2 emissions in metric tons per capita of 191 countries around the world from 2014 to 2019. Data is collected from the Worldbank databank. 
+The data.frame has 191 observations on 9 variables: 
+
+- `Country Name`: Name of the country
+- `country_code`: 3 letter code for that specific country
+- `Region`: From which part of the world the country belongs to
+- `X2014`: CO2 Emission in 2014
+- `X2015`: CO2 Emission in 2015
+- `X2016`: CO2 Emission in 2016
+- `X2017`: CO2 Emission in 2017
+- `X2018`: CO2 Emission in 2018
+- `X2019`: CO2 Emission in 2019
+    
+
+```{r q1-read-dataset, echo=TRUE}
+#
+library(readxl)
+CO2 <- read_excel("CO2.xlsx")
+
+```
+<p>
+
+#### Q1.(a) We would like to examine the overall trend of average CO2 emission from 2014 to 2019. (3 marks)
+- i. Plot a line chart showing the trend of mean CO2 emissions across all countries from years 2014 to 2019. The line chart should be appropriately titled, with y-axis representing mean CO2 emissions and x-axis representing year. 
+- ii. Describe the trend you observe from the chart. 
+
+```{r q1a, echo=TRUE}
+q1a <- CO2 %>% summarise(total2014 = mean(CO2$`2014`), total2015 = mean(CO2$`2015`),total2016 = mean(CO2$`2016`),total2017 = mean(CO2$`2017`), total2018 = mean(CO2$`2018`), total2019 = mean(CO2$`2019`))
+
+plot(c(2014,2015,2016,2017,2018,2019), q1a, main="mean CO2 emissions across all countries from years 2014 to 2019", xlab="year", ylab="mean CO2 emissions", pch=18) 
+lines(c(2014,2015,2016,2017,2018,2019), q1a)
+
+```
+
+
+There is a decreasing trend in mean CO2 emissions from 2014 to 2019.
+
+
+#### Q1.(b) Is there a significant difference in mean CO2 emission in 2014 compared to 2019 at the 5% level of significance? Answer this question by conducting the appropriate hypothesis test. In your answer, remember to state your H0/H1 and your interpretation of the test results. (3 marks)
+
+```{r q1b, echo=TRUE}
+q1a$total2014
+q1a$total2019
+#t.test(4.226973, alternative="two.sided", mu=4.115138, conf.level = 0.95)
+
+```
+
+
+H0 : mean CO2 emission in 2014= mean CO2 emission in 2019
+H1 : mean CO2 emission in 2014 =/= mean CO2 emission in 2019
+
+
+
+#### Q1.(c) We would now like to compare the CO2 emission in 2019 across different regions. Create a table and the appropriate chart to display the mean CO2 emission in 2019 for each region in the data. Provide the appropriate titles for both the chart and table, and the appropriate axis labels for the chart. Describe your observation from the chart. (4 marks)
+
+```{r q1c, echo=TRUE}
+
+q1c <- CO2 %>% 
+  group_by(Region) %>% summarise(mean = mean(`2019`))
+
+kable(q1c, row.names=FALSE, caption = "CO2 emission in 2019 across different regions")
+par(mar=c(5,10,4,1)+.1)
+loanhrBP = barplot(q1c$mean, names=q1c$`Region`, col="blue", main="CO2 emission in 2019 across different regions", cex.names = 0.8, xlim=c(0,30), xlab="mean co2 emissions", horiz=TRUE, las=1)
+
+```
+
+North America has highest mean CO2 emission at 15.1 while sub-Saharan Africa has lowest mean co2 emission at 0.915
+
+
+
+#### Q1.(d) Continuing with part (c), could you conduct the appropriate test to determine if the mean CO2 emission in 2019 for the 4 regions with the highest CO2 emission are equal. In your answer, present your hypotheses, the results and conclusions. (5 marks)
+
+```{r q1d, echo=TRUE}
+#wa.out1 <- q1c %>% welch_anova_test( mean ~ Region)
+#gh.out1 <- games_howell_test(q1c, mean ~ Region)
+#wa.out1
+#gh.out1
+
+```
+
+
+TYPE YOUR ANSWER HERE
+
+**DO NOT FORGET TO PASTE ALL YOUR ANSWER TO EXAMPLIFY FOR EACH QUESTION.**
+
+## Question 2: Fama's Efficient Market Hypothesis (15 marks)
+
+The Efficient Markets Hypothesis (EMH) is an investment theory primarily derived from concepts attributed to Eugene Fama’s research as detailed in his 1970 book, “Efficient Capital Markets: A Review of Theory and Empirical Work.” The EMH claims that it is virtually impossible to consistently "beat the stock market", i.e., to make investment returns that outperform the overall market average, as in major stock indices such as NYSE (New York Stock Exchange) composite index.
+
+- Data set: `nyse` in `wooldridge` public data sets.
+
+```{r okun-loaddta}
+# load the data set, make sure you already load `wooldridge` package
+data(nyse)
+```
+
+This data set contains 691 observations on NYSE market returns from Jan 1976 to March 1989. The variables you will use to answer the question are the following:
+
+- `return`:                     market return in week t 
+- `return_1`:                   market return in week t-1, i.e., lagged return
+- `t`:                          time index 
+
+The basic idea behind EMH is that the information observable to the market in the last week should not help to predict the return in current week. Equivalently, it states that 
+
+$$E(return_t |return_{t-1}) = E(return_t)$$
+The expected market return in week t is independent from that of the last week t-1, i.e., market information in previous week has no value for predicting this week's market return. Otherwise, we say the market is inefficient and one could use information from past weekly returns to predict the current return. The EMH presumes that such investment opportunities will be observed and will disappear almost instantaneously. 
+
+One simple way to test Fama's famous EMH is to specify the following simple linear regression model and test if $\beta_1 = 0$:
+
+$$return_t = \beta_0 + \beta_1 return_{t-1} + u_t$$
+
+#### (a) Run the simple linear regression specified above in R. 
+
+ - **Based on the regression output from R, please write down the fitted line.** (1 mark)
+ 
+ - **Interpret the coefficient of $return_{t-1}$.** (1 mark)
+ 
+ - **With reference to the regression output, do you think the data supports Fama's EMH and why?** (1 mark)
+
+
+```{r q2a, echo=TRUE}
+fit1 = lm(return~return_1 + t, nyse)
+summary(fit1)
+
+```
+
+the fitted line is return = 0.1012896 + 0.0585130 * return_1 + 0.0002260 * t
+
+Coefficient of return_1 = 0.0585130. Every unit increase of  market return in week t-1 increases expected market return in week t by 0.0585130, on average, given all other predictors constant.
+
+I think data supports Fama's EMH as the p-value of return_1= 0.125 > 0.05, thus we do not have sufficient evidence to reject the null hypothesis that the coefficient is 0. Therefore, the coefficient is statistically insignificant at the 5% level of confidence. This is to say that beta1 is indeed 0 according to Fama's EMH.   
+
+
+#### (b) Do you trust the conclusion you had in part (a) and explain why? (4 marks)
+
+```{r q2b, echo=TRUE}
+plot(fit1, which = c(1,2), caption = list("Resid vs. Fitted", "Normal Q-Q")) 
+pairs.panels(nyse)
+```
+No, I do not trust the conclusions i had in part (a). 
+
+p-value of intercept= 0.532 > 0.05, thus we do not have sufficient evidence to reject the null hypothesis that the coefficient is 0.
+
+p-value of return_1= 0.125 > 0.05, thus we do not have sufficient evidence to reject the null hypothesis that the coefficient is 0.
+
+p-value of t= 0.577 > 0.05, thus we do not have sufficient evidence to reject the null hypothesis that the coefficient is 0.
+
+From the scatterplots, return and return_1 does not have a linear relationship with price.
+There are also presence of outliers.
+From QQ plot, it seems that there is non-normal error.
+
+#### (c) Many financial analysts may believe that the market return at week t, $return_t$, given the previous week's return, is a quadratic function of $return_{t-1}$. To check this possibility, use this data set to estimate:
+$$return_t = \beta_0 + \beta_1 return_{t-1} + \beta_2 return_{t-1}^2 + u_t$$
+
+**Run the specified quadratic equation given above in R (you might need to create the new variable yourself).**
+
+ - **Based on your regression output, what is the marginal effect of last week's return on this week's return when $return_{t-1} = 0.10$? Please show the steps of your computation.** (2 marks)
+ 
+ - **State and test null hypothesis that $E(return_t |return_{t-1})$ does not depend on $return_{t-1}$ and what do you conclude?** (2 marks)
+ *(Hint: there are two terms about return[t-1] in this model, i.e., return[t-1] and return[t-1]^2.)*
+ 
+ - **From both part (a) and this question, what do you conclude about the Fama's efficient market hypothesis?** (1 mark)
+
+
+```{r q2c, echo=TRUE}
+nyse$return_1_sq = nyse$return_1^2
+fit2 = lm(return~return_1 + return_1_sq + t, nyse)
+summary(fit2)
+
+0.1304683 + (0.10)*0.0476128 + (0.10^2)*-0.0101887 + 0.0002804
+```
+
+the marginal effect of last week's return on this week's return when return_{t-1} = 0.10.
+0.1304683 + (0.10)*0.0476128 + (0.10^2)*-0.0101887 + 0.0002804 = 0.1354081
+
+H0: $E(return_t |return_{t-1})$ does not depend on $return_{t-1}$
+H1: $E(return_t |return_{t-1})$ does depend on $return_{t-1}$
+return_1 is statistically insignificant with p-value=0.220 (>0.05) larger than the conventional cutoffs. The data shows little evidence that return depends on return(t-1).
+return_1_sq is statistically insignificant with p-value=0.150 (>0.05) larger than the conventional cutoffs. The data shows little evidence that return depends on return(t-1)^2.
+
+From both parts (a) and (b), I conclude that Fama's efficient market hypothesis is true.
+
+
+#### (d) Make predictions with the time-series data `return`.Define the time series `return` as time-series object in R.
+```{r , echo=TRUE}
+# define time series obj. We assume that one year has 52 weeks.
+return_ts = nyse$return %>% na.omit %>% ts(freq = 52, start = c(1976,2))
+```
+The time series data `return` ends at 15th week in year 1989.
+
+ - **Plot the 4-week moving average series of `return` and the original series in one graph. ** (1 mark)
+ 
+ - **Which exponential smoothing model should you use to predict `return` and why?** (1 mark)
+ 
+ - **Based on your choice of exponential smoothing model, make prediction for 16th week in 1989.** (1 mark)
+
+```{r q2d, echo=TRUE}
+return_ts_SMA4 <- TTR::SMA(return_ts, n = 4)
+plot.ts(return_ts, col = 'darkred')
+plot.ts(return_ts_SMA4, col = 'blue')
+
+return_ts_SMA4[16]
+```
+
+
+use single exponential smoothing as no trend and seasonality.
+Prediction: -0.1866432
+
+
+
+**DO NOT FORGET TO PASTE ALL YOUR ANSWER TO EXAMPLIFY FOR EACH QUESTION.**
+
+## Question 3: POS Marketing (15 marks)
+
+A product's position can greatly affect its retail performance and longevity. In a retail convenience store, shelf space near the point-of-sale (POS) is the key to a product's sale and its marketing success. The shelves near the POS offer maximum visibility to the customers and help the stores reap in those extra few dollars for items which were not even in the shoppers list. This fact has led to a marketing war between brands to occupy the best possible space in a store. 
+
+From the perspective of a retailer, it is critical to ensure that the retail space at POS is working for value maximization of the store. You are a store manager for retail convenience store Seven24 and are responsible to make decision for product display at POS. The store has two racks at POS, Rack 1 and Rack 2 with 2 shelves each. Products from two chewing-gum companies, Triplemint and FrezBreath, are to be allocated to display on the shelves. Triplemint brand has two chewing-gum products, green and yellow while FrezBreath has one product to offer. Each shelf could at most display one product. 
+
+The following table summarizes the lifts (i.e., daily profit in SGD from historical data) when each product is placed on a specific rack (1 and 2) and shelf (Upper/Bottom). For example, 178 is the daily profit of green Triplemint product if displayed on upper shelf, Rack 1. 
+
+| Rack | Rack 1  ||	Rack 2 |||	
+| :- | :---: | :---: | :---: | :---: | 
+|**Shelf**| Upper | Bottom | Upper | Bottom |
+|Triplemint (green) | 178 | 87| 126 | 80| 
+|Triplemint (yellow) | 120 | 85| 115 | 80| 
+|FrezBreath |155 | 55 | 150 |  60 | 
+
+The marketing contracts you signed with two brands can be summarized as following:
+
+1.**Brand awareness**: The *brand* of Triplemint and Frezbreath needs to be displayed at least once.   
+2.**Top-shelf effect**: Top shelf is attractive for its visibility and accessibility. FrezBreath requires their gum to be placed at the top shelf at least once.  
+
+#### (a) To solve this profit-maximization problem, what are your decision variables? Clearly define your decision variables below. (1 mark)
+
+Decision variables Triplemint (green) on rack 1 upper : X1
+Decision variables Triplemint (green) on rack 1 bottom : X2
+Decision variables Triplemint (green) on rack 2 upper : X3
+Decision variables Triplemint (green) on rack 2 bottom : X4
+Decision variables Triplemint (yellow) on rack 1 upper : X11
+Decision variables Triplemint (yellow) on rack 1 bottom : X12
+Decision variables Triplemint (yellow) on rack 2 upper : X13
+Decision variables Triplemint (yellow) on rack 2 bottom : X14
+Decision variables FrezBreath on rack 1 upper : X21
+Decision variables FrezBreath on rack 1 bottom : X22
+Decision variables FrezBreath on rack 2 upper : X23
+Decision variables FrezBreath on rack 2 bottom : X24
+#### (b) Based on your definition of decision variables in part (a), formulate the linear optimization problem *without solving* it.
+
+ (1) **Write out the objective function for this profit-maximization problem.** (1 mark)
+ 
+ (2) **Write out the set of constraints below and how many constraints of this type?** (1 mark)
+ 
+ > Each shelf could at most display one product. 
+ 
+ (3) **Write out the set of constraints for brand awareness and how many constraints of this type?** (1 mark)
+ 
+ > **Brand awareness**: The *brand* of Triplemint and Frezbreath needs to be displayed at least once.
+ 
+ *Hint: Observe that there are two products for Triplemint. This constraint means that at least one of two products needs to be displayed for Triplemint.*
+ 
+ (4) **Write out the set of constraints for top-shelf effect and how many constraints of this type?** (1 mark)
+ 
+ > **Top-self effect**: FrezBreath requires their gums to be placed at the top shelf at least once.  
+ 
+ (5) **What are other constraints that apply to this problem? List them all.** (1 mark)
+ 
+You could formulate the problem using the following table. 
+
+
+Profit-maximizing for POS display | 178 X1 + 87 X2 + 126 X3 + 80 X4 + 120 X11 + 85 X12 + 115 X13 + 80 X14 + 155 X21 + 55 X22 + 150 X23 + 60X24
+--- | --- 
+Subject to |  
+At most one product each shelf | X1 + X11 + X21 <= 1
+At most one product each shelf | X2 + X12 + X22 <= 1
+At most one product each shelf | X3 + X13 + X23 <= 1
+At most one product each shelf | X4 + X14 + X24 <= 1
+Brand awareness | X1 + X2 + X3 + X4 + X11 + X12 + X13 + X14 >= 1
+Brand awareness | X21 + X22 + X23 + X24 >= 1
+Top-shelf | X21 + X23 >= 1
+Binary, Integer, Non-negativity Constraints | X1 to X24 all integers and >= 0
+
+(Remark: You could have multiple rows for one type of constraint in the above table)
+
+
+#### (c) Solve this optimization problem in R. (3 marks)
+
+- **What is the optimal way to display the products on your POS shelves?**
+
+- **What is the highest daily profit you could earn?** 
+
+
+```{r q3c, echo=TRUE}
+# defining parameters 
+objective.fn <- c(178, 87, 126, 80,
+                  120, 85, 115, 80,
+                  155, 55, 150, 60)
+const.mat = matrix(c(
+                     1,0,0,0,1,0,0,0,1,0,0,0,
+                     0,1,0,0,0,1,0,0,0,1,0,0,
+                     0,0,1,0,0,0,1,0,0,0,1,0,
+                     0,0,0,1,0,0,0,1,0,0,0,1,
+                     # Constraint 2: Brand Awareness
+                     1,1,1,1,1,1,1,1,0,0,0,0,
+                     0,0,0,0,0,0,0,0,1,1,1,1,
+                     # Constraint 2: Top shelf
+                     0,0,0,0,0,0,0,0,1,0,1,0
+                     ), ncol = 12, byrow = TRUE)
+const.dir = c(rep('<=', 4), rep('>=', 3))
+const.rhs = c(1,1,1,1,1,1,1)
+
+# solving the linear problem
+lp.solution = lp(direction = 'max', objective.fn, 
+              const.mat, const.dir, const.rhs,all.int = T,
+              compute.sens = TRUE)
+lp.solution
+matrix(c(lp.solution$solution), ncol = 4, byrow = T)
+```
+
+The optimal way to display is to display triplemint(green) on upper rack 1, triplemint(green) on bottom rack 1, Frezbreath on upper rack 2 and triplemint(green) on bottom rack 2.
+Highest daily profit is $495.
+
+
+
+
+#### (d) Brand marketing competition is fierce at POS racks. As Triplemint is the market incumbent for chewing-gum, FrezBreath aggressively tries to promote her product directly targeting at those from Triplemint. FrezBreath agent recently came to you and asked you the following term:
+
+**"Tailgating" marketing**:  FrezBreath must be on the same rack as long as Triplemint's a product appears in one of the shelves in that rack. 
+
+**How much compensation, at least, should you ask FrezBreath to pay you in order to adopt their tailgating strategy?** Please show all the steps of your computation to get full marks. Try at least to write out the new constraints. (6 marks)
+
+```{r q3d, echo=TRUE}
+# defining parameters 
+objective.fn <- c(178, 87, 126, 80,
+                  120, 85, 115, 80,
+                  155, 55, 150, 60)
+const.mat = matrix(c(
+                     1,0,0,0,1,0,0,0,1,0,0,0,
+                     0,1,0,0,0,1,0,0,0,1,0,0,
+                     0,0,1,0,0,0,1,0,0,0,1,0,
+                     0,0,0,1,0,0,0,1,0,0,0,1,
+                     # Constraint 2: Brand Awareness
+                     1,1,1,1,1,1,1,1,0,0,0,0,
+                     0,0,0,0,0,0,0,0,1,1,1,1,
+                     # Constraint 2: Top shelf
+                     0,0,0,0,0,0,0,0,1,0,1,0,
+                     # tailgating strategy
+                     0,0,0,0,0,0,0,0,1,0,0,0,
+                     0,0,0,0,0,0,0,0,0,0,1,0
+                     ), ncol = 12, byrow = TRUE)
+const.dir = c(rep('<=', 4), rep('>=', 3),rep('=', 2))
+const.rhs = c(1,1,1,1,1,1,1,1,1)
+
+# solving the linear problem
+lp.solution = lp(direction = 'max', objective.fn, 
+              const.mat, const.dir, const.rhs,all.int = T,
+              compute.sens = TRUE)
+lp.solution
+matrix(c(lp.solution$solution), ncol = 4, byrow = T)
+
+```
+
+With this strategy, new total profit is $472.
+495-472 = 23.
+FrezBreath should at least pay me $23 in order to adopt their tailgating strategy.
+
+
+**DO NOT FORGET TO PASTE ALL YOUR ANSWER TO EXAMPLIFY FOR EACH QUESTION.**
+

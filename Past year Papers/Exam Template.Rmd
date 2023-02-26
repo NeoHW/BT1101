@@ -1,0 +1,72 @@
+---
+title: "BT1101 Final Exam Template"
+author: "BT1101 Student. Neo Haowei"
+date: '25 Nov 2021, 1:00 - 3:30 PM'
+output: html_document
+---
+
+## Instructions
+- **Rename your R Markdown file `FE_[MatricNumber].rmd`**, and the output will automatically be `FE_[MatricNumber].html`. 
+- Select `output: html_document`.
+- Include all code chunks, so include `echo=TRUE` in all chunks.
+- Replace the placeholder text, "Type your answer here.", with your own.
+- Preinstall and include any `library('package_name')` statements before exam starts. Remember that there is no Internet connection during the exam.
+
+- Code and type your answer in this Rmarkdown file during exam but **keep in mind that you need to copy and paste all your answer (r-chunk and text) into Essay Answer section for each question in Examplify.**
+- Submit your both R Markdown file (.rmd) and HTML (.html) to the folder "Final Exam Submission" in Luminus after Examplify submission and Internet reconnection.
+- This Rmarkdown file serves as a reference. **Only answers submitted in Examplify will be graded.** Zero point will be given for blank submission in Examplify even if you have submitted a complete Rmarkdown/HTML file.
+
+## Preparation
+
+```{r preparation, echo=TRUE, warning = FALSE, message = FALSE}
+
+library('libcoin')
+library("rcompanion") #this package is required for transformTukey function
+library("rstatix")
+library("Rmisc") 
+library("dplyr") #need to call the library before you use the package
+library("tidyr")
+library("rpivotTable")
+library("knitr")
+library("psych")
+library(tidyverse)
+library(ggplot2) 
+library(factoextra) # for fviz_cluster()
+library(lpSolve)
+
+# predictive/prescriptive analytics
+library(tseries) 
+library(forecast)
+library(lpSolve)
+library(TTR)
+
+# descriptive analytics
+library(psych)
+library(Rmisc)
+library(rcompanion)
+library(rpivotTable)
+library(EnvStats) 
+library(car)
+library(rstatix)
+
+# general use
+library(wooldridge)
+library(dplyr)
+library(tidyr)
+library(knitr)
+```
+
+## Some Formulas:
+<p style="color:blue">
+Mean use T-test, Proportion Z-test  
+test statistic z for proportion: (proportion-probability) / sqrt(probability * (1-probability)/n)  
+test statistic t for comparing means: (new mean-old mean)/(sd/sqrt(n))  
+z critical value: qnorm(0.05) # 5% level of significance, one tailed  
+t critical value: qt(0.975,df=n-1)  
+confidence interval for mean: mean +- `test statistic t` * (sd/sqrt(n)) OR use CI()  
+prediction interval: mean +- `test statistic t` * (sd * sqrt(1+(1/n))  
+confidence interval for proportions: p +- `test statistic z`  * (sqrt(p*(1-p)/n)) 
+</p>
+
+
+
