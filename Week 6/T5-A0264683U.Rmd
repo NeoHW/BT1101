@@ -1,0 +1,251 @@
+---
+title: "BT1101-Tutorial 5 (Part 2 Deadline: 3 Oct 9am)"
+output: html_document
+---
+
+### Preparation
+```{r load-libraries, echo=TRUE, message=FALSE, warning=FALSE}
+# install required packages if you have not
+
+library("rcompanion") #this package is required for transformTukey function
+library("rstatix") # for Welch ANOVA test
+library("Rmisc")  # ci function to compute confidence interval
+library("rpivotTable")
+library("knitr")
+library("psych")
+library("dplyr") 
+library("tidyr")
+library(wooldridge) # contains the data `smoke`
+
+```
+
+
+## Tutorial 5 Part 2 (To be submitted - 30 Marks) 
+Context: Use data(‘smoke’). This is an actual data set  with 807 observations on 10 variables. Data is collected from male individuals in 1979 and early 1980 from the Smoking Supplement to the 1979 National Health Interview Survey conducted in US.  
+
+The variables are described below: 
+
+- `educ`: years of schooling
+- `cigpric`: cigarette price (in cents/pack) within the state the individual resides in
+- `white`: =1 if race is white; =0 if race is non-white 
+- `age`: in years
+- `income`: annual income, $
+- `cigs`: cigarettes smoked per day
+- `restaurn`: =1 if restaurants in the individual's state of residence has smoking restrictions; =0 if no smoking restrictions
+- `lincome`: log(income)
+- `agesq`: age^2
+- `lcigpric`: log(cigprice)
+    
+You are tasked to conduct the required analyses to better understand smoking behavior (or cigarette demand) in the US during the period of study. We will consider those who smoke zero cigarette per day to be a non-smoker while those who smoke at least one per day to be a smoker.  
+
+```{r Q2-read-dataset, echo=TRUE}
+data(smoke) 
+SK<-smoke
+```
+<p>
+
+### Q2.(a) Dashboard for Smokers vs Non-Smokers (4 marks)
+
+- i. Create a new categorical variable called "smoker" in the dataframe `SK`, to label the observations as "Smoker" or "Non-Smoker". (1 mark)
+- ii. Create a table and piechart for the dashboard to display the frequency distribution of Smoker vs Non-Smoker. (2 marks)
+- iii. Label the piechart with an appropriate title, and each slice with "Smoker" or "Non-Smoker" and the percentage of its frequency to overall frequency (e.g. if frequency of "Smoker" is 50 and total frequency of "Smoker" and "Non-Smoker" is 100, then the percentage would be 50% ((50/100)*100%)). Each slice should also be of a different colour. (1 mark)
+
+```{r q2a, echo=TRUE}
+
+#i)
+SK <- SK %>% mutate(smoker = if_else(cigs > 0, "Smoker", "Non-Smoker"))
+SK$smoker <- as.factor(SK$smoker)
+
+#ii) & iii)
+# Create table for Smoker
+SKp1 <- SK %>% count(smoker, sort = TRUE)
+kable(SKp1, caption = "Frequency distribution of Smoker vs Non-Smoker")
+
+# Create pie chart for Smoker
+slice.smoker <- SKp1$n
+smoker.piepercent <- 100*round(SKp1$n/sum(SKp1$n),4)
+label <- SKp1$smoker
+label <- paste(label, ",", sep ="")
+label <- paste(label, smoker.piepercent)
+label <- paste(label, "%", sep = "")
+pie(slice.smoker,
+    labels=label,
+    col=c("blue","cyan"),
+    radius=1,
+    main="Frequency distribution of Smoker vs Non-Smoker")
+
+
+```
+
+<p style="color:blue">
+
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+### Q2.(b) Amongst white individuals, the population proportion that is a smoker is said to be equal to 0.4. Evaluate if this statement is true by conducting a hypothesis test using 5% level of significance. Clearly define H0 and H1 and explain your findings. (4 marks)
+
+
+```{r q2b, echo=TRUE}
+#H0: population proportion that is a smoker = 0.4
+#H1: population proportion that is a smoker != 0.4
+
+white <- SK %>% filter(white == "1")
+whiteSmoker <- white %>% filter(smoker == "Smoker")
+pwhiteSmoker <- nrow(whiteSmoker)/nrow(white) #proportion
+
+# One-sample test for proportion: we use z-statistic
+zWhiteSmoker <- (pwhiteSmoker-0.4) / sqrt(0.4*(1-0.4)/nrow(white))
+zWhiteSmoker
+
+#compute critical value
+lcvWhiteSmoker <- qnorm(0.05/2)
+lcvWhiteSmoker
+# check to see if z-stat less than critical value
+zWhiteSmoker < lcvWhiteSmoker
+
+```
+
+<p style="color:blue">
+H0: Smoker proportion amongst white individuals = 0.4.  
+H1: Smoker proportion amongst white individuals != 0.4.  
+From our results, since z-statistics is not less than the critical value, we do not have sufficient evidence to reject H0, at 5% level of significance.
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+### Q2.(c) Dashboard for `cigs` (7 marks)
+- i. Generate a table, with an appropriate title, to display the following descriptive statistics for `cigs`: mean, median, standard deviation, kurtosis, skewness coefficient. (2 marks)
+- ii. Plot a histogram for `cigs`. Describe the distribution for `cigs` and explain if there are any outliers (2 marks)
+- iii. Develop the 95% confidence interval for mean `cigs`. Based on this confidence interval, explain if you can reasonably conclude that the mean number of cigarettes smoked per day is 10?  (3 marks)
+ 
+** You are not required to remove any outliers detected**
+```{r q2c, echo=TRUE}
+
+#i)
+dfcigs <- SK %>% summarise(vars='No. of cigarettes smoked per day',n=n(),
+                             mean=mean(cigs),
+                             sd=sd(cigs),
+                             median=median(cigs),
+                             skew=skew(cigs),
+                             kurtosis=kurtosi(cigs))
+kable(dfcigs, row.names=FALSE, caption = "Description Statistics for `cigs`") 
+
+#ii)
+h1 <- hist(SK$cigs,
+           main="Histogram of No. of cigarettes smoked per day",
+           xlab="No. of cigarettes smoked per day",
+           ylab="No. of people",
+           col=c("darkorange"),
+           ylim=c(0,600),
+           labels=TRUE)
+
+#iii)
+#compute 95% CI for mean Age using Rmisc::CI()
+ci.cigs<-CI(SK$cigs, ci=0.95)
+#To get the CI, you can print the lower and upper limit
+print(cbind(ci.cigs[3],ci.cigs[1]), digits=4)
+
+
+```
+
+<p style="color:blue">
+Part ii)  
+The distribution for number of cigarettes smoked per day is unimodal and positively-skewed/right-skewed, with a high degree of skewness.(from part i where skewness coefficient=1.648 > 1 ). This tells us that the Mode < Median < Mean.  
+Using visual inspection, there may be an outlier at the extreme right that smokes 70-80 cigarettes per day while most of the others smoke less than 60 cigarettes per day.
+<br>
+Part iii)  
+The 95% CI for for mean number of cigarettes smoked per day is [7.738, 9.635]. We are 95% “confident” that this interval contains the true population mean. More generally, with repeated random sampling from the same population (infinitely), 95% of such constructed confidence intervals would contain the true population mean age.   
+Since 10 is not within this range, we cannot reasonably conclude that the mean number of cigarettes smoked per day is 10.
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+
+
+### Q2.(d) Dashboard for `cigpric` (4 marks)
+
+- i. Develop the 99% prediction interval for `cigpric`. Explain what the interval tells us. 
+
+```{r q2d, echo=TRUE}
+
+options(scipen=5) # to remove scientific notation
+# In order for predictions to be valid, our variables should be normally distributed. Hence, check for normality!
+# Can just do one graph and shapiro wilk
+#hist(SK$cigpric, xlab = "cigarette price (in cents/pack")
+#plot(density(SK$cigpric), main = "Density Plot for Price of Cigarettes")
+qqnorm(SK$cigpric,ylab='Sample quartiles for price of cigarettes')
+qqline(SK$cigpric,col='red')
+shapiro.test(SK$cigpric)
+# Since its not normally distributed, use transformTukey to make it normally distributed
+SK$cigpric.t = transformTukey(SK$cigpric,plotit = TRUE)
+# Using x ^ lambda where lambda = 4.6
+mn.cigpric.t <- mean(SK$cigpric.t)
+sd.cigpric.t <- sd(SK$cigpric.t)
+lpi.cigprict <- mn.cigpric.t + (qt(0.005, df=(nrow(SK)-1))*sd.cigpric.t*sqrt(1+1/nrow(SK)))
+upi.cigprict <- mn.cigpric.t - (qt(0.005,df=(nrow(SK)-1))*sd.cigpric.t*sqrt(1+1/nrow(SK)))
+print(cbind(lpi.cigprict,upi.cigprict))
+# Reverse transformation using equation
+## y = x ^ lambda ,,  lambda = 4.6 from transformTukey
+## y = x ^ 4.6
+## x = y ^ (1/4.6)
+lpi.cigpric <- lpi.cigprict^(1/4.6)
+upi.cigpric <- upi.cigprict^(1/4.6)
+cbind(lpi.cigpric,upi.cigpric)
+
+```
+
+<p style="color:blue">
+The 99% prediction interval for cigarette price (in cents/pack) within the state the individual resides in is [42.10, 69.36]. Given the observed cigarette price, the cigarette price for a new observation will lie within this interval with a 99% level of confidence. More generally, with repeated sampling, 99% of such constructed predictive intervals would contain the new cigarette price.
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+### Q2.(e) Use the data to test if the mean number of cigarettes smoked per day is higher for individuals who are from states where restaurants have smoking restrictions versus those from states where restaurants do not have smoking restrictions. Conduct the appropriate hypothesis test and explain your conclusion from the results. Be sure to state your H0/H1 clearly, defining any symbols or notations you use in your hypothesis. (4 marks)
+
+```{r q2e, echo=TRUE}
+
+# `restaurn`: =1 if restaurants in the individual's state of residence has smoking restrictions; =0 if no smoking restrictions
+cig.restrict = SK %>% filter(restaurn == "1")
+cig.restrictNon = SK %>% filter(restaurn == "0")
+t.test(cig.restrict$cigs,cig.restrictNon$cigs, alternative="greater")
+
+```
+<p style="color:blue">
+Let μ1 be population mean number of cigarettes smoked per day for individuals who are from states where restaurants have smoking restrictions, and μ2 be population mean number of cigarettes smoked per day for individuals who are from states where restaurants do not have smoking restrictions.  
+H0: μ1 ≤ μ2, H1: μ1 > μ2  
+The t-statistic is -2.7161. Since p=0.9966 > 0.05, we have insufficient evidence to reject H0. We can conclude that the mean number of cigarettes smoked per day for individuals who are from states where restaurants have smoking restrictions is significantly less than population mean number of cigarettes smoked per day for individuals who are from states where restaurants do not have smoking restrictions.  
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+### Q2.(f) Use the data to test if the mean number of cigarettes smoked per day varies across people in different age groups. (7 marks)
+
+- i. Start by creating a variable, called `agegp` which will have 3 values: 1- for age less than 30; 2- for age 30 to 48; 3 - for age greater than 48. This variable defines the three age groups that we will compare in part ii. (1 mark)
+- ii. Create a table to display the frequency distribution for `agegp`. (1 mark)
+- iii. Conduct the appropriate hypothesis test to assess if the mean number of cigarettes smoked per day is same across people of three age groups. Be sure to state your H0/H1 clearly, defining any symbols or notations you use in your hypothesis, and explain your conclusion from the results.(5 marks)
+
+```{r q2f, echo=TRUE}
+
+#i)
+SK<- SK %>% mutate(agegp = ifelse(age < 30, "1", ifelse(age <= 48, "2", "3")))
+
+#ii)
+agegpTable <- SK %>% count(agegp)
+kable(agegpTable, caption = "Frequency distribution of `agegp`")
+
+#iii)
+wa.out1 <- SK %>% welch_anova_test(cigs ~ agegp)
+gh.out1 <- games_howell_test(SK, cigs ~ agegp)
+wa.out1
+gh.out1
+```
+
+<p style="color:blue">
+H0: mean number of cigarettes smoked per day is same across people of the three age groups, H1: at least one age group has a different mean number of cigarettes smoked per day from the other age groups.  
+Since p value of 0.145>0.05, we do not have sufficient evidence to reject H0. We conclude that there is no true difference between the mean number of cigarettes smoked per day across people of the three age groups at the 5% level of significance.
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+

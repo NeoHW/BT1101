@@ -1,0 +1,572 @@
+---
+title: "BT1101-Tutorial 4 (Part 2 Deadline: 26 Sept 9am)"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+## Tutorial 4
+
+### Learning Objectives: 
+- To be able to generate descriptive statistics using R
+- To be able to generate tables and charts to display the descriptive statistics of one or more variables. 
+- To be able to interpret the descriptive statistics generated
+- To be able to assess if a variable is normally distributed
+- To be able to perform outlier analyses
+- To be able to compute proportions
+- To be able to compute probabilities of events that approximate the normal distribution, given population parameters
+
+### Default Requirements for Tables/Charts
+- Tables must have appropriate titles and column names
+- Charts must have appropriate titles, axis labels, and legend (where necessary)
+- Pie charts should have appropriate titles and slices should be labeled with the category name and percentage value.
+
+**These default requirements should be followed unless specified otherwise in the question.**
+
+## Preparation
+```{r load-libraries, echo=TRUE, warning = FALSE, message = FALSE}
+# install required packages if you have not (suggested packages: dplyr, tidyr, rpivotTable, knitr, psych)
+# install.packages("dplyr") #only need to run this code once to install the package
+# load required packages 
+# library("xxxx")
+library("dplyr") #need to call the library before you use the package
+library("tidyr")
+library("rpivotTable")
+library("knitr")
+library("psych")
+
+```
+
+
+## Tutorial 4 Part 1 (For lab session)
+
+- Dataset required: `Sales Transactions.xlsx`
+
+`Sales Transactions.xlsx` contains the records of all sale transactions for a day, July 14. Each of the column is defined as follows:
+
+- `CustID` :  Unique identifier for a customer
+- `Region`: Region  of customer's home address 
+- `Payment`: Mode of payment used for the sales transaction
+- `Transction Code`: Numerical code for the sales transaction
+- `Source`: Source of the sales (whether it is through the Web or email)
+- `Amount`: Sales amount
+- `Product`: Product bought by customer
+- `Time Of Day`: Time in which the sale transaction took place. 
+
+
+```{r q1-read-dataset, echo=TRUE}
+#put in your working directory folder pathname ()
+
+#import excel file into RStudio
+library(readxl)
+ST <- read_excel("Sales Transactions.xlsx", col_types = c("numeric", "text", "text", "numeric", "text", "numeric", "text", "date"), skip = 2)
+```
+
+<p>
+**As the business analytics analyst of the company, you have been tasked to help the store manager develop dashboard that will enable him to gain better insights of the data. **
+</p>
+
+### Q1.(a) Customer Dashboard 
+The manager would like to have a better understanding of the customer profiles. He would like the customer dashboard to be able to display in charts and tables, the following:
+
+- i. frequency distribution for the regions the customers are from
+- ii. frequency distribution for the payment mode used by the customers
+
+He would like you to use shades of blue for the charts. He would also like to have your interpretation of the tables and charts generated. Write your observation in the space below. 
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+```{r 1a-sale, echo=TRUE}
+##Enter your codes here
+
+# table for region
+RegionFreq <- ST %>% count(Region)
+kable(RegionFreq, caption = "Frequency of customers by Region")
+
+# piechart for region
+slice.region <- RegionFreq$n
+region.piepercent <- 100*round(RegionFreq$n/sum(RegionFreq$n),2)
+label <- RegionFreq$Region
+label <- paste(label, ",", sep ="")
+label <- paste(label, region.piepercent)
+label <- paste(label, "%", sep = "")
+pie(slice.region,
+    labels=label,
+    col=c("blue","cyan","dodgerblue","skyblue"),
+    radius=1,
+    cex = 0.9, 
+    main="Frequency of customers by Region")
+
+# table for payment mode
+STb2 <- ST %>% count(Payment)
+kable(STb2, caption = "Frequency of customers by Payment Mode")
+
+# piechart for payment mode
+slice.payment <- STb2$n
+payment.piepercent <- 100*round(STb2$n/sum(STb2$n),2)
+label <- STb2$Payment
+label <- paste(label, ",", sep ="")
+label <- paste(label, payment.piepercent)
+label <- paste(label, "%", sep = "")
+pie(slice.payment,
+    labels=label,
+    col=c("blue","cyan","dodgerblue","skyblue"),
+    radius=1,
+    cex = 0.9, 
+    main="Frequency of customers by Payment Mode")
+```
+
+<p style="color:blue">
+Type your observations here.
+
+</p>
+
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+
+### Q1.(b) Sales Transaction Analyses Dashboard 
+The manager would also like to have a dashboard to be able to visualize the sales `Amount` data better. 
+
+- i. First, generate the descriptive statistics for `Amount` in a table. The manager would like to include only these statistics: n (or number of observations), mean, sd, median, skew, kurtosis. (Discuss what these statistics tell you about the distribution of `Amount`. Is it normally distributed?)
+- ii. Plot the histogram, density plot and normal Q-Q plot for `Amount`. Then conduct the appropriate goodness of fit test to confirm if the variable is normally distributed. [Note: Typically you can choose which plot to plot that will enable you to make a better judgement]
+- iii. The manager is concerned about potential outliers in the data. Can you help to identify if any outliers for `Amount` exists?
+- iv. The manager suspects that the sales `Amount` may differ for transactions involving `Book` versus `DVD`. Could you generate the table and chart for him to be able to compare the mean and standard deviations of `Amount` for books versus dvds? Describe what you can observe from the chart. 
+- v. Perform the outlier analyses separately for books and dvds. What observations can you make now? Would you remove any of the outliers? 
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+```{r Q.1b, echo=TRUE}
+##Enter your codes here
+
+#i 
+stAmount <- describe(ST$Amount, IQR=TRUE)
+stAmount <- stAmount[,c(2,3,4,5,11,12)] # using indexing
+row.names(stAmount) <- "Amount"
+#stAmount <- ST %>% summarise(vars='Amount',n=n(),mean=mean(Amount),sd=sd(Amount),median=median(Amount),skew=skew(Amount),kurtosis=kurtosi(Amount),min = min(Amount)) %>% mutate(across(where(is.numeric), round, 2)) %>% kable(row.names=FALSE, caption = "Description Statistics for Age & Savings")  
+kable(stAmount, row.names = T, caption = "Descriptive Statistics for `Amount`")
+
+#ii
+ST.h<-hist(ST$Amount,
+				 main="Histogram for Sales Amount",
+				 xlab="Sales Amount",
+				 ylab="No. of customers",
+				 col="darkorange",
+				 ylim=c(0,250),
+				 cex.axis= 0.8,
+				 labels=TRUE,
+				 xaxp = c(0,260,13)) # xaxp changes spacing between axis tick marks
+
+plot(density(ST$Amount))
+qqnorm(ST$Amount)
+qqline(ST$Amount, col=2) # 2 is red
+
+#goodness of fit test
+shapiro.test(ST$Amount)
+
+#iii
+boxplot(ST$Amount, range=3, main='Boxplot with range=3', horizontal =  TRUE)
+
+#iv
+#ST.book <- ST %>% filter(Product == "Book") %>% summarise(mean=mean(Amount),SD=sd(Amount))
+#ST.dvd <- ST %>% filter(Product == "DVD") %>% summarise(mean=mean(Amount),SD=sd(Amount))
+ST.product <- ST %>% group_by(Product) %>% summarise(mean=mean(Amount),SD=sd(Amount))
+kable(ST.product)
+
+#plot grouped barplot
+par(mar=c(5,10,4,2))
+bar.product <- as.matrix(ST.product[,c(2:3)])
+bar_col1 <- c("pink","plum1")
+barplot(bar.product, col=bar_col1,  main="Mean and Std Deviations of `Amount` across Products", cex.names=0.9, las = 1, ylab="Amount", beside = TRUE) 
+legend("topright", cex = 0.7, fill = bar_col1, ST.product$Product)
+
+#v
+# Splitting the data
+tab.books<- ST %>% filter(Product=='Book')
+tab.dvd<- ST %>% filter(Product=='DVD')
+# Plot histogram for each data to see if data is normally distributed
+hist(tab.books$Amount)
+hist(tab.dvd$Amount)
+
+boxplot.bk<-boxplot(tab.books$Amount, horizontal = TRUE, range=3)
+boxplot.bk$out
+boxplot.dvd<-boxplot(tab.dvd$Amount, horizontal = TRUE, range=1.5)
+boxplot.dvd$out
+
+
+```
+
+
+<p style="color:blue">
+Null hypothesis H0: Data was drawn from a normally distributed population.  
+Since p<0.05, the probability of the available data is less than 5% given that the null hypothesis is true. There is evidence that the data is <b>not normally distributed</b>.  
+There are no outliers for DVD data. In the case of books, there are quite a number of sales with higher sales amount. Therefore, there are unlikely to be outliers. Discuss with the book store manager reveals that higher sales amount is due to the sales of rare/collector item books that tend to cost more. To deal with "outlier" here, one way is to analyse normal books and rare/collector books separately. This is something that needs to be discussed with the mgr.  
+</p>
+
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+
+### Q1.(c) Checking Correlation
+The manager would like to check if the sales `Amount` for DVD has any correlation with `Time of the Day`.
+
+- i. Plot the appropriate chart and provide the statistical measure to help the manager assess this. 
+- ii. Type your interpretation for the manager in the space below. 
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+
+```{r Q.1c, echo=TRUE}
+
+# i
+
+#plot scatterplot
+plot(x=tab.dvd$`Time Of Day`,
+     y =tab.dvd$Amount,
+     main = "Scatterplot of Amount to Time of Day for DVD sales",
+     xlab = "Time of Day",
+     ylab = "Amount")
+
+# convert Time of Day to numeric , then use cor function
+cor(as.numeric(tab.dvd$`Time Of Day`), tab.dvd$Amount)
+# corr.test function
+corr.test(as.numeric(tab.dvd$`Time Of Day`), tab.dvd$Amount)
+
+
+```
+
+<p style="color:blue">
+Type your answer here.
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+
+### Q1.(d) Computing proportions and probability
+The manager would like to use the existing data to compute the following:
+
+- i. Proportion of `Book` sales transactions that have `Amount`greater than $60.
+- ii. Proportion of `DVD` sales transactions that are from the Web.
+
+Assume that we do not have this dataset that you are working with. Instead we are told the DVD sales Amount is normally distributed with a mean of \$20 and standard deviation of \$4. What is the probability of DVD sales amount being greater than $25? 
+
+Please type your answer below.
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+
+```{r Q.1d, echo=TRUE}
+#i
+df.book <- ST %>% filter(Product=="Book")
+df.book60 <-  df.book %>% filter(Amount > 60)
+nrow(df.book60)/nrow(df.book)
+#ii
+df.dvd <- ST %>% filter(Product=="DVD")
+df.dvdweb <-  df.dvd %>% filter(Source == "Web")
+nrow(df.dvdweb)/nrow(df.dvd)
+
+# Probability of DVD sales > $25
+pnorm(25,mean=20,sd=4,lower.tail = FALSE)
+```
+
+<p style="color:blue">
+Type your answer here.
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+### Tutorial 4 Part 2 (To be submitted - 30 Marks)
+
+- Dataset required: `ds_salaries.csv`
+
+The dataset contains Data Science jobs salary data aggregated by ai-jobs.net. There are 607 observations and 11 variables. Each of the variable (column) is defined as follows: 
+
+- `work_year`: The year the salary was paid.
+- `experience_level`: The experience level in the job during the year with the following possible values: EN Entry-level / Junior; MI Mid-level / Intermediate; SE Senior-level / Expert; EX Executive-level / Director
+- `employment_type`: The type of employment for the role: PT Part-time; FT Full-time; CT Contract; FL Freelance
+- `job_title`: The role worked in during the year.
+- `salary`: The total gross salary amount paid.
+- `salary_currency`: The currency of the salary paid as an ISO 4217 currency code.
+- `salary_in_usd`: The salary in USD (FX rate divided by avgerage USD rate for the respective year via fxdata.foorilla.com).
+- `employee_residence`: Employee's primary country of residence during the work year as an ISO 3166 country code.
+- `remote_ratio`: The overall amount of work done remotely, possible values are as follows: 0 No remote work (less than 20%); 50 Partially remote; 100 Fully remote (more than 80%)
+- `company_location`: The country of the employer's main office or contracting branch as an ISO 3166 country code.
+- `company_size`: The average number of people that worked for the company during the year: S less than 50 employees (small); M 50 to 250 employees (medium); L more than 250 employees (large)
+
+```{r q2-read-dataset, echo=TRUE}
+#import dataset into RStudio
+
+DS <- read.csv("ds_salaries.csv")
+
+```
+
+As a business analytics analyst, you are required to perform the following tasks as described in each question below. 
+
+
+### Q2.(a) Descriptive Statistics for `salary_in_usd` (9 marks)
+
+In the previous tutorial, you have examined the frequency distributions of the `salary_in_usd` variable. You would like to learn more about this variable by examining the descriptive statistics. Create a table displaying n (or number of observations), mean, standard deviation, median, skew, and kurtosis. Can you describe the distribution of this variable based on the statistics? (4 marks)
+
+Can you plot a chart and table that provides a visualisation of the mean `salary_in_usd` for different employment types and another chart and table of mean `salary_in_usd` for different experience levels? Describe your observations from these charts? (5 marks)
+
+(For Tutorial discussion: plot a density plot, normal Q-Q plot, and compare these plots with the histogram you have plotted in tutorial 3 as well as the observations you have just made from the descriptive statistics)
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+
+```{r q2.(a), echo=TRUE}
+# Part 1
+dsAmount <- DS %>% summarise(vars='Salary in USD',n=n(),
+                             mean=mean(salary_in_usd),
+                             sd=sd(salary_in_usd),
+                             median=median(salary_in_usd),
+                             skew=skew(salary_in_usd),
+                             kurtosis=kurtosi(salary_in_usd))
+kable(dsAmount, row.names=FALSE, caption = "Description Statistics for Salary in USD")  
+
+# Part 2
+## Table and Chart for mean `salary_in_usd` against different employment types
+
+# Create contingency table
+meanSalByEmployment <- DS %>% group_by(employment_type) %>% summarise(mean = mean(salary_in_usd)) %>% mutate(across(where(is.numeric), round, 2)) %>% arrange(desc(mean)) 
+kable(meanSalByEmployment, caption = "Mean salary in USD against different employment types")
+
+
+
+# Create Bar Chart
+bpSalEmploy <- barplot(meanSalByEmployment$mean, names.arg = meanSalByEmployment$employment_type,
+                 col = "blue",
+                 main = "Frequency distribution for mean salary in USD against different employment types",
+                 xlab = "Mean salary in USD",
+                 horiz = TRUE,
+                 xlim = c(0,230000),
+                 las = 1,
+                 cex.main = 0.9)
+mtext("Employment type", side = 2, line = 3, cex.lab = 1, las = 3)
+text(x=meanSalByEmployment$mean, y=bpSalEmploy, col="black", meanSalByEmployment$mean, pos=4, cex = 0.8)
+
+
+## Table and Chart for mean `salary_in_usd` for different experience levels
+# Create contingency table
+meanSalByExp <- DS %>% group_by(experience_level) %>% summarise(mean = mean(salary_in_usd)) %>% mutate(across(where(is.numeric), round, 2)) %>% arrange(desc(mean)) 
+kable(meanSalByExp, caption = "Mean salary in USD for different experience levels")
+
+# Create Bar Chart
+bpSalExp <- barplot(meanSalByExp$mean, names.arg = meanSalByExp$experience_level,
+                 col = "blue",
+                 main = "Frequency distribution for mean salary in USD for different experience levels",
+                 xlab = "Mean salary in USD",
+                 horiz = TRUE,
+                 xlim = c(0,230000),
+                 las = 1,
+                 cex.main = 0.9)
+mtext("Experience Level", side = 2, line = 3, cex.lab = 1, las = 3)
+text(x=meanSalByExp$mean, y=bpSalExp, col="black", meanSalByExp$mean, pos=4, cex = 0.8)
+
+
+```
+<p style="color:blue">
+Part 1:  
+The standard deviation for Salary in USD is $70957.26. As this number is quite large, it suggests a high degree of variation and dispersion in the data. However, standard deviation is not a normalised measure.  
+When looking at the kurtosis, which is the peakedness or flatness of a histogram, the kurtosis coefficient for Salary in USD is 6.261119, which indicates that the data is peaked with less dispersion.  
+Next, we can consider the skewness, which describes the lack of symmetry of data. The skewness coefficient for Salary in USD is 1.659312, which indicates a high degree of skewness as it is more than 1. For a positive skewness coefficient, the data is skewed to the right, the tail of the distribution curve is longer on its right side.   
+We also see that the mean (112297.9) is greater than the median (101570), which is what we expect from positive skewness.  
+Therefore, this data is positively skewed with high kurtosis, showing that it is not a normal distribution.  
+Part 2:  
+Based on the charts, for Employment Type, CT has the highest mean salary, followed by FT, PL and PT respectively. For Experience Level, EX has the highest mean salary, followed by SE, MI and EN respectively.
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+
+### Q2.(b) Outlier Analyses for `salary_in_usd` (19 marks)
+
+In the last tutorial, you examined the frequency distributions for employment_type and experience_level. According to industry practice, it is common for salaries to vary across different employment type and experience level. For example, full time employees are usually paid more than part time employees because of the number of hours worked;  full-time employment tends to have a different salary structure compared to contract and free-lance work arrangement; higher levels of work experience also confer higher salaries and executive-level directors may be paid more compared to entry or mid-level/intermediate level employees. 
+
+- i. Generate a histogram of `salary_in_usd` for each employment_type. Type what you observe below. (3 marks)
+- ii. Given full-time employment is very different from the other employment types, and forms the majority of the data, you have  decided to analyse it separately. Keeping only the observations where employment_type is "FT", plot a histogram of `salary_in_usd` for each experience_level. For each histogram, do a visual inspection to determine whether any outliers exist. Type what you observe below.(4 marks)
+- iii. You are told that the `salary_in_usd` variable for full time senior level/ expert roles approximates normal distribution. Could you use the boxplot method to identify if there are any mild or extreme outliers? Type the values of the outliers (if any) below. (5 marks)
+- iv. Again, keeping only the data comprising full-time senior level/ expert employment, remove any outliers (even mild ones) if any based on your findings in 2b(iii). Plot the histogram, density plot and normal Q-Q plot for `salary_in_usd` and conduct the Shapiro Wilk's test on `salary_in_usd`. Explain if `salary_in_usd` for full-time senior level/ expert employment employees is normally distributed. (7 marks)
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+
+```{r q2.(b), echo=TRUE}
+
+#i)
+# Histogram for salary in USD for each employment type()
+
+options(scipen=5) # to remove scientific notation
+salaryPT = DS %>% filter(employment_type == "PT") %>% select(salary_in_usd)
+histPT<-hist(salaryPT$salary_in_usd,
+				 main="Histogram of Salary in USD for PT employment type",
+				 xlab="Salary",
+				 ylab="No. of Employees",
+				 col=c("darkorange"),
+				 ylim=c(0,100),
+				 breaks = seq(0,600000,length.out = 13), 
+				 labels=TRUE)
+
+salaryFL = DS %>% filter(employment_type == "FL") %>% select(salary_in_usd)
+histFL<-hist(salaryFL$salary_in_usd,
+				 main="Histogram of Salary in USD for FL employment type",
+				 xlab="Salary",
+				 ylab="No. of Employees",
+				 col=c("darkorange"),
+				 ylim=c(0,100),
+				 breaks = seq(0,600000,length.out = 13),
+				 labels=TRUE)
+
+salaryFT = DS %>% filter(employment_type == "FT") %>% select(salary_in_usd)
+histFT<-hist(salaryFT$salary_in_usd,
+				 main="Histogram of Salary in USD for FT employment type",
+				 xlab="Salary",
+				 ylab="No. of Employees",
+				 col=c("darkorange"),
+				 ylim=c(0,200),
+				 breaks = seq(0,600000,length.out = 13),
+				 labels=TRUE)
+
+salaryCT = DS %>% filter(employment_type == "CT") %>% select(salary_in_usd)
+histCT<-hist(salaryCT$salary_in_usd,
+				 main="Histogram of Salary in USD for CT employment type",
+				 xlab="Salary",
+				 ylab="No. of Employees",
+				 col=c("darkorange"),
+				 ylim=c(0,100),
+				 breaks = seq(0,600000,length.out = 13),
+				 labels=TRUE)
+
+#ii)
+# Histogram for salary in USD for each experience type where employment type is FT
+
+salaryENFT = DS %>% filter(experience_level == "EN", employment_type == "FT") %>% select(salary_in_usd)
+histENFT<-hist(salaryENFT$salary_in_usd,
+				 main="Histogram of Salary in USD for EN experience level, FT employment",
+				 xlab="Salary",
+				 ylab="No. of Employees",
+				 col=c("darkorange"),
+				 ylim=c(0,100),
+				 breaks = seq(0,600000,length.out = 13),
+				 labels=TRUE)
+
+salaryMIFT = DS %>% filter(experience_level == "MI", employment_type == "FT") %>% select(salary_in_usd)
+histMIFT<-hist(salaryMIFT$salary_in_usd,
+				 main="Histogram of Salary in USD for MI experience level, FT employment",
+				 xlab="Salary",
+				 ylab="No. of Employees",
+				 col=c("darkorange"),
+				 ylim=c(0,100),
+				 breaks = seq(0,600000,length.out = 13),
+				 labels=TRUE)
+
+salarySEFT = DS %>% filter(experience_level == "SE", employment_type == "FT") %>% select(salary_in_usd,job_title) # select job title to be used in 2c
+histSEFT<-hist(salarySEFT$salary_in_usd,
+				 main="Histogram of Salary in USD for SE experience level, FT employment",
+				 xlab="Salary",
+				 ylab="No. of Employees",
+				 col=c("darkorange"),
+				 ylim=c(0,110),
+				 breaks = seq(0,600000,length.out = 13),
+				 labels=TRUE)
+
+salaryEXFT = DS %>% filter(experience_level == "EX", employment_type == "FT") %>% select(salary_in_usd)
+histEXFT<-hist(salaryEXFT$salary_in_usd,
+				 main="Histogram of Salary in USD for EX experience level, FT employment",
+				 xlab="Salary",
+				 ylab="No. of Employees",
+				 col=c("darkorange"),
+				 ylim=c(0,100),
+				 breaks = seq(0,600000,length.out = 13),
+				 labels=TRUE)
+
+#iii)
+# Plot a boxplot for full time SE level, check if any mild or extreme outliers
+# For outliers > 1,5IQR
+onePointFiveIQROutliers <- boxplot(salarySEFT$salary_in_usd, main='Boxplot with range = 1.5', horizontal =  TRUE)
+# For outliers > 3IQR
+threeIQROutliers <- boxplot(salarySEFT$salary_in_usd, range=3, main='Boxplot with range = 3', horizontal =  TRUE)
+# Getting the values of outliers
+# Getting mild outliers
+mildOutliers <- setdiff(onePointFiveIQROutliers$out,threeIQROutliers$out) # setdiff(a,b) identifies values that are in a but not in b
+# Getting extreme outliers
+extremeOutliers <- threeIQROutliers$out
+# Printing out to console mild and extreme outliers
+mildOutliers
+extremeOutliers
+
+#iv)
+# Removing the outliers in salarySEFT
+salarySEFT <- salarySEFT %>% filter(salary_in_usd < 276000)
+
+# Plot the histogram, density plot and normal Q-Q plot
+SEFT.h<-hist(salarySEFT$salary_in_usd,
+				 main="Histogram of Salary in USD for SE experience level, FT employment (outliers removed)",
+				 xlab="Salary",
+				 ylab="No. of people",
+				 col="darkorange",
+				 ylim=c(0,110),
+				 breaks = seq(0,300000,length.out = 7),
+				 cex.main = 0.8,
+				 labels=TRUE)
+
+plot(density(salarySEFT$salary_in_usd), main = "Kernel Density of Salary in USD for SE experience level, FT employment (outliers removed)", cex.main = 0.8)
+
+
+qqnorm(salarySEFT$salary_in_usd, main = "Normal Q-Q Plot of Salary in USD for SE experience level, FT employment (outliers removed)", cex.main = 0.8)
+qqline(salarySEFT$salary_in_usd, col=2) # 2 is red
+
+# Conduct the Shapiro Wilk's test on `salary_in_usd`
+shapiro.test(salarySEFT$salary_in_usd)
+
+
+
+```
+
+<p style="color:blue">
+Part i)  
+Majority of employees are FT, while PT, FL and CT employment types has 10 or less employees each.  
+PT and FL employees earned below 100,000 while there is a bigger variance for CT employment type, with salaries ranging from the range $0 - $50,000 to the range $400,000 - $450000.
+For FT employees, majority are in the salary range $50,000 - $100,000.  
+<br>
+Part ii)  
+For FT employees with EN experience level, there are 2 outliers earning $200,000 to $250,000 while majority of them are earning less than $150,000.  
+For FT employees with MI experience level, there are 3 outliers earning $400,000 to $450,000 while majority of them are earning less than $250,000.  
+For FT employees with SE experience level, there are also 3 outliers earning from $350,000 to $450,000 while majority are earning less than $300,000.  
+For FT employees with EX experience level, there is an outlier earning $550,000 to $600,000 while the majority are earning less than half of his salary.  
+<br>
+Part iii)  
+Mild outliers: 276000, 380000  
+Extreme outliers: 405000, 412000  
+There are a total of four outliers.  
+<br>
+Part iv)  
+`salary_in_usd` for full-time senior level/ expert employment employees is normally distributed after removal of the outliers.  
+From visual inspection of histogram and the QQ plot, it can be seen that the data follows a normal distribution.  
+From Shapiro-Wilk normality test, since p-value=0.3654 > 0.05, the probability of the available data is more than 5% given that the null hypothesis is true. We do not reject H0.There is evidence that data is normally distributed.
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+
+### Q2.(c) Computing proportions and probabilities (2 marks)
+
+- i. Using the data from 2b(iv), compute the proportion of full time senior level/expert employees who are Data Scientist. (1 mark)
+- ii. Given that `salary_in_usd` is a random variable that is normally distributed with mean of 135600 and standard deviation of 50500, what is the probability of `salary_in_usd` being less than $110,000. (1 mark)
+
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+
+```{r q2.(c), echo=TRUE}
+
+#i)
+dataScientistSEFT <- salarySEFT %>% filter(job_title == "Data Scientist")
+nrow(dataScientistSEFT)/nrow(salarySEFT)
+
+#ii)
+pnorm(110000,mean=135600,sd=50500,lower.tail = TRUE)
+
+```
+
+<p style="color:blue">
+Part i) After removal of outliers, proportion of full time senior level/expert employees who are Data Scientist is 0.2189781.  
+Part ii) Probability of `salary_in_usd` being less than $110,000 is 0.3061017.
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+

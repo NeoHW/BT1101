@@ -1,0 +1,591 @@
+---
+title: "BT1101-Tutorial 3 (Part 2 Deadline: 12 Sep 9am)"
+output: 
+  html_document: default
+  pdf_document: default
+---
+
+## Tutorial 3
+
+### Learning Objectives: 
+- To be able to use RMarkdown for coding and generating your report (.html) for tutorial submission 
+- To be able to work with excel (.xlsx and .csv) datasets in R
+- To be able to do simple data manipulation to generate tables and charts for data visualisation
+- To know what when to use pie chart, barplots, group barplots, line charts and scatterplots and how to interpret these charts
+- To be able to conduct Pareto analysis and interpret the results
+
+### Default Requirements for Tables/Charts
+- Tables must have appropriate titles and column names
+- Charts must have appropriate titles, axis labels, and legend (where necessary)
+- Pie charts should have appropriate titles and slices should be labeled with the category name and percentage value.
+
+**These default requirements should be followed unless specified otherwise in the question.**
+
+### Preparation
+
+#```{css, echo=FALSE}
+
+#.rpivotTable{ overflow-x: scroll; }
+#.rpivotTable{ overflow: auto; }
+
+#```
+
+```{r load-libraries, echo=TRUE, warning = FALSE, message = FALSE}
+#install.packages - only need to run this code once to install the package
+# load required packages
+# library("xxxx")
+library("tidyverse") #need to call the library before you use the packages
+library("rpivotTable")
+library("knitr")
+```
+
+### Tutorial 3 Part 1 (To be done during lab)
+
+- Dataset required: `Bank Credit Risk Data.xlsx`
+
+The worksheet Base Data in the Excel file Bank Credit Risk Data provides information about 425 bank customers who had applied for loans. Each of the column is defined as follows: 
+
+- `Loan Purpose` : Type of purpose for the loan applied
+- `Checking` : Checking account balance
+- `Savings` :  Savings account balance
+- `Months Customer`: Number of months has been a customer of the bank
+- `Months Employed`: Number of months in employment
+- `Gender`: Gender
+- `Marital Status`: Marital status 
+- `Age`: Age in years
+- `Housing`: Housing type
+- `Years`: Number of years at current residence
+- `Job`: Job type
+- `Credit Risk`: Credit-risk classification by the bank
+
+```{r q1-read-dataset, echo=TRUE}
+#put in your working directory folder pathname 
+#setwd("/Users/haowei/NUS/BT1101/Week 4")
+#import excel file into RStudio
+library(readxl)
+CR <- read_excel("Bank Credit Risk Data.xlsx", 
+                               sheet = "Base Data", skip = 2)
+
+```
+<p>
+**You will continue to build on the dashboards that we have started in lecture 3.**
+</p>
+
+### Q1.(a) Customer Profile Dashboard 
+The credit risk analyst would like to have a better understanding of the bank's loan customer through this Customer Profile Dashboard. In particular, he has the following requirements for the Customer Profile Dashboard: 
+
+- i. To be able to view the frequency distributions for each of the following customer demographic variables in a chart and table (i.e. one table and chart per variable): `Housing`, `Job`, `Credit Risk`, `Months Employed` and `Total`. `Total` is the sum of `Checking` and `Savings`. (hint: You will need to create the variable `Total` in the dataframe)  
+- ii. To view the relationship between `Total` and `Months Employed` in one chart, and the relationship between `Total` and `Age` in another chart.
+- iii. To provide a description of any interesting patterns observed from the charts. (You may type your answer in the space below)
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+
+```{r q1.(a), echo=TRUE}
+#i)
+CR <- CR %>% mutate(Total = Checking + Savings)
+CR$`Credit Risk` <- factor(CR$`Credit Risk`, ordered = TRUE, levels = c("Low","High"))
+#pie chart for housing
+HouseFreq <- CR %>% count(Housing)
+kable(HouseFreq, caption = "Frequency of Bank Customers by Housing")
+slice.house <- HouseFreq$n
+house.piepercent <- 100*round(HouseFreq$n/sum(HouseFreq$n),2)
+label <- HouseFreq$Housing
+label <- paste(label, ",", sep ="")
+label <- paste(label, house.piepercent)
+label <- paste(label, "%", sep = "")
+pie(slice.house,
+    labels=label,
+    col=c("blue","cyan","dodgerblue"),
+    radius=1, 
+    main="Customer Housing Type")
+
+#pie chart / barplot for Job
+#Job Piechart
+JobFreq <- CR %>% count(Job)
+kable(JobFreq, caption = "Frequency of Bank Customers by Job")
+slice.job <- JobFreq$n
+job.piepercent <- 100*round(JobFreq$n/sum(JobFreq$n),2)
+label <- JobFreq$Job
+label <- paste(label, ",", sep ="")
+label <- paste(label, job.piepercent)
+label <- paste(label, "%", sep = "")
+pie(slice.job,
+    labels=label, 
+    col=c("blue","cyan","dodgerblue","deepskyblue"),
+    radius=1, 
+    main="Customer Job")
+#Job Barplot
+barplot(JobFreq$n, names.arg = JobFreq$Job,
+        col = "blue",
+        main = "Frequency of Bank Customers by Job",
+        xlab = "No. of customers",
+        horiz = "true",
+        cex.names = 0.55,
+        xlim = c(0,300),
+        las = 1,
+        )
+
+#pie chart for credit risk
+RiskFreq <- CR %>% count(`Credit Risk`)
+kable(RiskFreq, caption = "Frequency of Bank Customers by Credit Risk")
+slice.risk <- RiskFreq$n
+risk.piepercent <- 100*round(RiskFreq$n / sum(RiskFreq$n), 2)
+label <- RiskFreq$`Credit Risk`
+label <- paste(label, "," , sep="")
+label <- paste(label, risk.piepercent)
+label <- paste(label, "%", sep="")
+pie(slice.risk,
+    labels = label,
+    col = c("blue","cyan"),
+    radius = 1,
+    main = "Customer Credit Risk")
+
+#Histogram for Months Employed
+h.em<-hist(CR$`Months Employed`, main="Histogram of Customer Months Employed",xlab="Customer Months Employed",ylab="No. of Customers", col=c("darkorange") ,ylim=c(0,160), labels=TRUE)
+# extract frequency table from hist()
+Emp.Group<-cut(CR$`Months Employed`,h.em$breaks)
+t.emp<-table(Emp.Group)
+kable(t.emp, caption = "Frequency distribution by Months Employed")
+
+#Histogram for Total Account balance
+h.total <- hist(CR$Total, main = "Histogram of Customer Total Account balance", xlab = "Customer Total Account balance", ylab = "No. of customers", col = c("darkorange"), ylim= c(0,400),labels = TRUE)
+# extract frequency table from hist()
+Total.Group <- cut(CR$Total, h.total$breaks, dig.lab = 5)
+t.total <- table(Total.Group)
+kable(t.total, caption = "Frequency Distribution by Total Account Balance")
+
+#ii)
+plot(x = CR$`Months Employed`, y = CR$Total, xlab = "Months Employed", ylab= "Total", main="Scatterplot of Months Employed to Total")
+plot(x = CR$Age, y = CR$Total, , xlab = "Age", ylab= "Total", main="Scatterplot of Age to Total")
+
+```
+
+<p style="color:blue">
+Not much interesting trends as points for ii as points are cluttered around the bottom.
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+### Q1.(b) Customer Credit Risk Analyses Dashboard
+The credit risk analyst is also interested in understanding the demographics of customers with different levels of Credit Risk. in this dashboard, he would like to be able to :
+
+- i. see the appropriate charts and tables to compare frequency of customers by `Credit Risk` and `Job` as well as by `Credit Risk` and `Housing`. He requested the use of stacked barplots for these charts.
+- ii. see a description of any interesting patterns observed from the charts.
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+
+```{r q1.(b), echo=TRUE}
+
+# Create contingency table for Credit Risk and Job with Job as columns and Credit risk as rows
+CRb1 <- CR %>% group_by(`Credit Risk`, Job) %>% count()
+CRb1.spread <- CRb1 %>% spread(key=Job,value=n)
+kable(CRb1.spread, caption = "Contingency table for Credit Risk and Job")
+
+#Plotting Grouped barplot for Credit Risk and Job
+barmatrix.CRb1<-as.matrix(CRb1.spread[,c(2:5)]) #extract and convert the 2nd to 5th columns into a matrix
+bar_col1 <- c("blue", "grey")
+barplot(barmatrix.CRb1, col = bar_col1, main = "Frequency of customers by Credit risk and Job", ylab = "No. of customers")
+legend("topright", cex = 0.6, fill = bar_col1, legend = CRb1.spread$`Credit Risk`)
+
+# we build the beside grouped barplot as a comparison to show that it can display the differences better. 
+barplot(barmatrix.CRb1, col=bar_col1,  main="Frequency of Customers by Credit Risk and Job", ylab="No. of Customers", beside=TRUE) 
+legend("topright", cex=0.6, fill=bar_col1, legend=CRb1.spread$`Credit Risk`)
+#----------
+# Create contingency table for Credit Risk and Housing with Housing as columns and Credit risk as rows
+CRb2 <- CR %>% group_by(`Credit Risk`, Housing) %>% count()
+CRb2.spread <- CRb2 %>% spread(key=Housing,value=n)
+kable(CRb2.spread, caption = "Contingency table for Credit Risk and Job")
+
+#Plotting Grouped barplot for Credit risk and Housing
+barmatrix.CRb2<-as.matrix(CRb2.spread[,c(2:4)]) 
+bar_col1 <- c("blue", "grey")
+barplot(barmatrix.CRb2, col = bar_col1, main = "Frequency of customers by Credit risk and Housing", ylab = "No. of customers")
+legend("topright", cex = 0.6, fill = bar_col1, legend = CRb2.spread$`Credit Risk`)
+
+# we build the beside grouped barplot as a comparison to show that it can display the differences better. 
+barplot(barmatrix.CRb2, col=bar_col1,  main="Frequency of Customers by Credit Risk and Housing", ylab="No. of Customers", beside=TRUE) 
+legend("topright", cex=0.6, fill=bar_col1, legend=CRb2.spread$`Credit Risk`)
+#----
+```
+
+<p style="color:blue">
+The differences for frequency of Jobs type between High and Low Credit Risk is very minimal. It is hard to visualize this using stacked barplot.
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+### Q1.(c) Customer Loan Analyses Dashboard
+The credit risk analyst would like this dashboard to help him better understand the `Loan Purpose` of customers with "High" levels of `Credit Risk`. 
+
+- i. Could you generate the table and chart for them to visualize the distribution of `Loan Purpose` for "High" `Credit Risk` customers?
+- ii. Describe in your answer below: Which `Loan Purpose` types are most and least common among "High" `Credit Risk` customers? 
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+
+```{r q1.(c), echo=TRUE}
+
+LoanHRFreq <- CR %>% filter (`Credit Risk` == "High") %>%  count(`Loan Purpose`)
+kable(LoanHRFreq, caption = "Frequency Distribution for Loan Purpose for High CR Customers")
+LoanHRbar <- LoanHRFreq$n
+
+barplot(LoanHRbar,names.arg=LoanHRFreq$`Loan Purpose`,col="blue", beside = TRUE, main="Frequency of Loan Purpose for High CR  
+       Customers", cex.names = 0.8, xlim=c(0,80), xlab="No. of Loans", horiz=TRUE, las=1)
+
+bploanHR <- barplot(LoanHRbar, names.arg=LoanHRFreq$`Loan Purpose`,col="blue", beside = TRUE, main="Frequency of Loan Purpose for High CR Customers", cex.names = 0.8, xlim=c(0,80), xlab="No. of Loans", horiz=TRUE, las=1) 
+text(x=LoanHRbar, y=bploanHR, col="black", LoanHRFreq$n, cex=0.8, pos=4)
+```
+
+<p style="color:blue">
+- Most common loan is New Car. Least common is Retraining.
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+### Q1.(d) Customer Account Balance Pareto Analyses
+The credit risk analyst would like the findings of the pareto analyses on `Total` to be displayed in this dashboard. In particular, he wants the dashboard to show the number and percentage of customers that contribute to 80% of the total account balance with the bank. 
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+
+```{r q1.(d), echo=TRUE}
+#extract only the Total column and sort in descending order
+CR.tot<-CR %>% select(Total) %>% arrange(desc(Total))
+
+#compute the percentage of savings over total savings
+CR.tot$Percentage<-CR.tot$Total/sum(CR.tot$Total)
+
+#compute cumulative percentage for Total
+CR.tot$Cumulative<-cumsum(CR.tot$Percentage) #cumulative sum from the top
+
+#compute cumulative percentage of customers from top most savings
+CR.tot$Cumulative.cust<-as.numeric(rownames(CR))/nrow(CR)
+
+#number of customers contributing most significantly to at least 80% savings
+which(CR.tot$Cumulative>0.8)[1]
+
+#percentage of customers contributing most significantly to at least 80% savings
+(which(CR.tot$Cumulative>0.8)[1])/nrow(CR)
+
+```
+
+<p style="color:blue">
+around 24% of customers make up 80% of the total account balances. 
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+
+### Tutorial 3 Part 2 (To be submitted)
+
+- Dataset required: `ds_salaries.csv`
+
+The dataset contains Data Science jobs salary data aggregated by ai-jobs.net. There are 607 observations and 11 variables. Each of the variable (column) is defined as follows: 
+
+- `work_year`: The year the salary was paid.
+- `experience_level`: The experience level in the job during the year with the following possible values: EN Entry-level / Junior; MI Mid-level / Intermediate; SE Senior-level / Expert; EX Executive-level / Director
+- `employment_type`: The type of employment for the role: PT Part-time; FT Full-time; CT Contract; FL Freelance
+- `job_title`: The role worked in during the year.
+- `salary`: The total gross salary amount paid.
+- `salary_currency`: The currency of the salary paid as an ISO 4217 currency code.
+- `salary_in_usd`: The salary in USD (FX rate divided by avgerage USD rate for the respective year via fxdata.foorilla.com).
+- `employee_residence`: Employee's primary country of residence during the work year as an ISO 3166 country code.
+- `remote_ratio`: The overall amount of work done remotely, possible values are as follows: 0 No remote work (less than 20%); 50 Partially remote; 100 Fully remote (more than 80%)
+- `company_location`: The country of the employer's main office or contracting branch as an ISO 3166 country code.
+- `company_size`: The average number of people that worked for the company during the year: S less than 50 employees (small); M 50 to 250 employees (medium); L more than 250 employees (large)
+
+```{r q2-read-dataset, echo=TRUE}
+#import dataset into RStudio
+
+
+DB <- read.csv("ds_salaries.csv" , header = TRUE, sep = ",")
+```
+
+As a business analytics analyst, you are required to perform the following tasks as described in each question below. 
+
+### Q2.(ai) Job Information Dashboard Part 1 (4 marks)
+- First, analyse the data to see how many job titles are captured in the dataset? Write you answer below.
+- Next, create a table and barplot to visualise the frequency distribution for the top 10 Job titles. 
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+```{r q2.(ai), echo=TRUE}
+# See how many job titles are captured in the dataset
+DBb1 <- DB %>% count(job_title, sort = TRUE)
+nrow(DBb1)
+
+# Create a table for top 10 job titles
+DBb1 <- DBb1 %>% arrange(desc(n)) %>% top_n(10)
+kable(DBb1, caption = "Table of frequency distribution for top 10 job titles")
+
+# Plotting barplot
+barmatrix.DBb1 <- as.matrix(DBb1)
+par(mar=c(5.1, 15, 2, 1)) # used to adjust margin , shift graph to the right so job titles wont be cut off
+bpJob <- barplot(DBb1$n, names.arg = DBb1$job_title,
+                 col = "blue",
+                 main = "Frequency distribution for top 10 Job Titles",
+                 xlab = "No. of jobs",
+                 horiz = TRUE,
+                 xlim = c(0,160),
+                 las = 1)
+mtext("Job Title", side = 2, line = 13, cex.lab = 1, las = 3) # use this instead of ylab so label will not overlap names
+text(x=DBb1$n, y=bpJob, col="black", DBb1$n, pos=4)
+
+
+```
+
+<p style="color:blue">
+50 job titles.
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+
+### Q2.(aii) Job Information Dashboard Part 2 (6 marks)
+- Create a table and pie chart for each of the following variables: `employment_type`, `experience_level`, `work_year` (6 marks)
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+```{r q2.(aii), echo=TRUE}
+# Create table for employment type
+DBp1 <- DB %>% count(employment_type, sort = TRUE)
+kable(DBp1, caption = "Employment Type")
+
+# Create pie chart for employment type
+slice.employment <- DBp1$n
+employment.piepercent <- 100*round(DBp1$n/sum(DBp1$n),2)
+label <- DBp1$employment_type
+label <- paste(label, ",", sep ="")
+label <- paste(label, employment.piepercent)
+label <- paste(label, "%", sep = "")
+pie(slice.employment,
+    labels=label,
+    col=c("blue","cyan","dodgerblue","deepskyblue"),
+    radius=1,
+    cex = 0.5, # to make labels not overlap
+    main="Employment Type")
+
+# Create table for experience level
+DBp2 <- DB %>% count(experience_level, sort = TRUE)
+kable(DBp2, caption = "Experience level")
+
+# Create pie chart for experience level
+slice.experience <- DBp2$n
+experience.piepercent <- 100*round(DBp2$n/sum(DBp2$n),2)
+label <- DBp2$experience_level
+label <- paste(label, ",", sep ="")
+label <- paste(label, experience.piepercent)
+label <- paste(label, "%", sep = "")
+pie(slice.experience,
+    labels=label,
+    col=c("blue","cyan","dodgerblue","deepskyblue"),
+    radius=1,
+    cex = 0.9, 
+    main="Experience level")
+
+# Create table for work year
+DBp3 <- DB %>% count(work_year, sort = TRUE)
+kable(DBp3, caption = "Work year")
+
+# Create pie chart for work year
+slice.year <- DBp3$n
+year.piepercent <- 100*round(DBp3$n/sum(DBp3$n),2)
+label <- DBp3$work_year
+label <- paste(label, ",", sep ="")
+label <- paste(label, year.piepercent)
+label <- paste(label, "%", sep = "")
+pie(slice.year,
+    labels=label,
+    col=c("blue","cyan","dodgerblue"),
+    radius=1,
+    cex = 0.9, 
+    main="Work year")
+
+```
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+### Q2.(aiii) Job Information Dashboard Part 3 (5 marks)
+- Create a table and chart to compare the frequency distributions for `employment_type` across the top 3 job titles.
+- Create a table and chart to compare the frequency distributions for `experience_level` across the top 3 job titles.
+
+- Based on charts in 2aii and 2aiii, describe briefly the type of jobs that are in the dataset. For example, is there more of a particular employment type in the data, and is the pattern the same for the top 3 job titles. 
+
+- For tutorial discussion only: What do you think about the job titles captured in the data. Do you think there are any issues with reliability or validity?
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+```{r q2.(aiii), echo=TRUE}
+
+# Create contingency table for Employment Type and Job Title
+top3JobsByType <- DB %>% group_by(job_title, employment_type) %>% count()
+top3JobsByType <- top3JobsByType %>% filter(job_title == "Data Scientist" |job_title == "Data Engineer" | job_title == "Data Analyst")
+top3JobsByType.spread <- top3JobsByType %>% spread(key=job_title,value=n)
+top3JobsByType.spread[is.na(top3JobsByType.spread)]<-0 #convert NA to 0 value
+kable(top3JobsByType.spread, caption = "Contingency table for Employment Type and Job Title")
+
+#Plotting Grouped barplot for Employment Type and Job Title
+barmatrix.top3JobsByType <- as.matrix(top3JobsByType.spread[,c(2:4)]) #extract and convert the 2nd to 4th columns into a matrix
+bar_col1 <- c("blue", "green", "red")
+bpjobem <- barplot(barmatrix.top3JobsByType, col=bar_col1,  main="Frequency of Employment Type by Job Title", ylab="No. of people", beside=TRUE)
+#creating numbers in the barplot
+text(bpjobem, 0, col = "black", barmatrix.top3JobsByType,cex=1, pos=3)
+#legend
+legend("topright", cex=0.6, fill=bar_col1, legend=top3JobsByType.spread$employment_type)
+
+# Create contingency table for Experience Level and Job Title
+top3JobsByXp <- DB %>% group_by(job_title, experience_level) %>% count()
+top3JobsByXp <- top3JobsByXp %>% filter(job_title == "Data Scientist" ||job_title == "Data Engineer" || job_title == "Data Analyst")
+top3JobsByXp.spread <- top3JobsByXp %>% spread(key=job_title,value=n)
+top3JobsByXp.spread[is.na(top3JobsByXp.spread)]<-0 #convert NA to 0 value
+kable(top3JobsByXp.spread, caption = "Contingency table for Experience Level and Job Title")
+
+#Plotting Grouped barplot for Experience Level and Job Title
+barmatrix.top3JobsByXp<-as.matrix(top3JobsByXp.spread[,c(2:4)])
+bar_col2 <- c("blue", "green", "red", "pink")
+bpjobex <- barplot(barmatrix.top3JobsByXp, col=bar_col2,  main="Frequency of Experience Level by Job Title", ylab="No. of People", beside=TRUE) 
+#creating numbers in the barplot
+text(bpjobex, 0, col = "black", barmatrix.top3JobsByXp,cex=1, pos=3)
+#legend
+legend("topright", cex=0.6, fill=bar_col2, legend=top3JobsByXp.spread$experience_level)
+
+
+```
+
+<p style="color:blue">
+Based on charts in 2aii, there is an overwhelming majority of FT employment compared to its FL and PT counterparts. Number of PT is also always higher than number of FL employment. This pattern is the same for the top 3 job titles.  
+Based on charts in 2aiii, the largest number of jobs is in the SE experience level, followed by MI, EN, and lastly EX. This pattern is the same for the top 3 job titles.
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+
+### Q2.(b) Salary Dashboard (10 marks)
+This dashboard is to visualise the salary data captured in the dataset better. 
+
+- i. Create a table and chart to visualise the frequency distributions for `salaryinusd`
+- ii. Create separate tables and charts to visualise the frequency distributions for `salaryinusd` across the top 3 Job titles. Do you observe any difference across the 3 job titles? [HINT: you may want to use the same breaks/bin width for the 3 charts for ease of comparison]
+
+- For tutorial discussion only: What do the round and square brackets for the intervals in the frequency distribution tables mean?  
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+```{r q2b, echo=TRUE}
+# Plotting histogram for salary in USD
+options(scipen=5) # to remove scientific notation
+h1<-hist(DB$salary_in_usd,
+				 main="Histogram of Salary in USD",
+				 xlab="Salary",
+				 ylab="No. of people",
+				 col=c("darkorange"),
+				 ylim=c(0,210),
+				 breaks = seq(0,600000,length.out = 13), # set 12 intervals between 0 and 600,000
+				 labels=TRUE)
+
+# Extract frequency table from hist()
+salary.range <- cut(DB$salary_in_usd,h1$breaks,include.lowest = TRUE, dig.lab = 6)
+t1 <- table(salary.range)
+kable(t1, caption = "Frequency distribution by Salary in USD")
+
+# Plotting histogram for salary in USD across Data Scientist
+salaryDS = DB %>% filter(job_title == "Data Scientist") %>% select(salary_in_usd)
+h2<-hist(salaryDS$salary_in_usd,
+				 main="Histogram of Salary in USD for Data Scientists",
+				 xlab="Salary",
+				 ylab="No. of people",
+				 col=c("darkorange"),
+				 ylim=c(0,50),
+				 breaks = seq(0,600000,length.out = 13), # set 12 intervals between 0 and 600,000
+				 labels=TRUE)
+
+# Extract frequency table from hist() for Data Scientist
+salary.range.DS <- cut(salaryDS$salary_in_usd,h2$breaks,include.lowest = TRUE, dig.lab = 6)
+t2 <- table(salary.range.DS)
+kable(t2, caption = "Frequency distribution by Salary in USD for Data Scientists")
+
+# Plotting histogram for salary in USD across Data Engineer
+salaryDE = DB %>% filter(job_title == "Data Engineer") %>% select(salary_in_usd)
+h3<-hist(salaryDE$salary_in_usd,
+				 main="Histogram of Salary in USD for Data Engineer",
+				 xlab="Salary",
+				 ylab="No. of people",
+				 col=c("darkorange"),
+				 ylim=c(0,50),
+				 breaks = seq(0,600000,length.out = 13), # set 12 intervals between 0 and 600,000
+				 labels=TRUE)
+
+# Extract frequency table from hist() for Data Engineer
+salary.range.DE <- cut(salaryDE$salary_in_usd,h3$breaks, dig.lab = 6)
+t3 <- table(salary.range.DE)
+kable(t3, caption = "Frequency distribution by Salary in USD for Data Engineer")
+
+# Plotting histogram for salary in USD across Data Analyst
+salaryDA = DB %>% filter(job_title == "Data Analyst") %>% select(salary_in_usd)
+h4<-hist(salaryDA$salary_in_usd,
+				 main="Histogram of Salary in USD for Data Analyst",
+				 xlab="Salary",
+				 ylab="No. of people",
+				 col=c("darkorange"),
+				 ylim=c(0,50),
+				 breaks = seq(0,600000,length.out = 13), # set 12 intervals between 0 and 600,000
+				 labels=TRUE)
+
+# Extract frequency table from hist() for Data Analyst
+salary.range.DA <- cut(salaryDE$salary_in_usd,h4$breaks, dig.lab = 6)
+t4 <- table(salary.range.DA)
+kable(t4, caption = "Frequency distribution by Salary in USD for Data Analyst")
+
+
+```
+<p style="color:blue">
+Salaries for Data Scientists has the largest variance, followed by Data Engineers and Data Analysts.  
+Data Scientists has the median salaries in the (100000,150000] range while Data Engineers and Data Analysts have median salaries in the (50000,100000] range.
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+### Q2.(c) Interactive Contingency Table (2 marks)
+Create a contingency table with the `rPivotTable` function for Data Scientist jobs that displays frequency for the following 3 variables: experience_level, employment_type and work_year. 
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+```{r q2.(c), echo=TRUE}
+# Things to note: make it such that all data is already data scientist. Can use the 3 variables in both columns and rows.
+
+DBds <- DB %>% filter(job_title == "Data Scientist")
+
+rpivotTable(DBds,
+            rows = "work_year",
+            cols=c("experience_level","employment_type"),
+            aggregatorName = "Count")
+
+```
+
+
+
+<p style="color:red">**END: YOUR ANSWER**</p>
+
+### Q2.(d) Pareto Analysis (3 marks)
+Conduct a Pareto analysis on `salary_in_usd` to be displayed in this dashboard. (Hint: check the number and percentage of individuals that contribute  to 80% of the total salary_in_usd earned in the dataset. Do you observe a 80-20 split? If not, what is the ratio?). 
+
+For tutorial discussion only: Try different percentages instead of 80 (say 90, 70, 60, etc.). Is there a percentage that gives you a sum of proportions closer to 100%?  
+
+<p style="color:red">**BEGIN: YOUR ANSWER**</p>
+
+```{r q2.(d), echo=TRUE}
+
+# Extract salary_in_usd row 
+DB.salary <- DB %>% select(salary_in_usd) %>% arrange(desc(salary_in_usd))
+
+# Compute the percentage of salary over total salary
+DB.salary$Percentage <- DB.salary$salary_in_usd/sum(DB.salary$salary_in_usd)
+
+# Compute cumulative percentage for Total
+DB.salary$Cumulative <- cumsum(DB.salary$Percentage)
+
+# Number of individuals contributing most significantly to at least 80% total salary
+which(DB.salary$Cumulative > 0.8)[1]
+
+# Percentage of individuals contributing most significantly to at least 80% total salary
+(which(DB.salary$Cumulative > 0.8)[1])/nrow(DB)
+
+```
+
+<p style="color:blue">
+No. From the Pareto Analysis, we see that about 352 (out of 607) of individuals contribute to 80% of the total salary_in_usd earned. It is not a 80-20 split as around 58% of individuals make up 80% of the total salary amount. The ratio is 80-58.
+</p>
+
+<p style="color:red">**END: YOUR ANSWER**</p>

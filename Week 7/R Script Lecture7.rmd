@@ -1,0 +1,227 @@
+# Lecture 7 Predictive Analytics: Linear Regression in R
+
+## Preparation
+```{r load-libraries, echo=TRUE}
+# load necessary library and packages for the analysis
+library(dplyr) 
+library(tidyr)
+library(animation)
+```
+
+Remarks:
+dplyr and tidyr are useful packages for data cleaning and wrangling in R. 
+get familiar with them. Cheat sheet here: https://rstudio.com/wp-content/uploads/2015/02/data-wrangling-cheatsheet.pdf.
+
+
+## Data Input
+```{r Data Input, echo=TRUE}
+# Import data using read.csv function and make sure there is the CSV file 'mroz.csv' in your working directory.
+  mroz = read.csv(file = 'mroz.csv', header = TRUE)
+# Display the structure of an object in R, here 'mroz' is a dataframe with 753 obs and and 22 variables.
+  str(mroz)
+# From 'str(mroz)', note that variable 'mroz$lwage', i.e. log(wage) is stored as factor variable yet it means to be a numeric one.
+# Converting a factor variable to numeric.
+  mroz$lwage_num = as.numeric(levels(mroz$lwage))[mroz$lwage]
+# Check if new variable has been successfully converted.
+  is.numeric(mroz$lwage_num)
+# Similarly, observe that 'mroz$city' is a binary int variable and we can convert it to factor variable with labels.
+  mroz$city_fac = factor(mroz$city, label = c("rural", "city"))
+# Display the first 6 rows of the dataframe 'mroz'.
+  head(mroz) 
+# Show contingency table for 2 variables (meaningful only for categorical variables or factors).
+  table(mroz$educ, mroz$city) 
+```
+Remarks:
+A good practice about dealing with data: keep original data immutable and make copy of it. Create new ones (dataframe/variables) if you want to change sth.
+When there is an err and you would like to know more about a function in R, use "?function_name", or 'help(function_name)' to read the manual and help file, 
+  e.g. "?read.csv" gives you manual on function "read.csv".
+For more information about data source, especially meaning of each variable, 
+please refer to https://www.rdocumentation.org/packages/npsf/versions/0.5.2/topics/mroz. 
+
+## Summary Statistics & Data Scatterplot + Main Analysis A - Simple Linear Regression
+```{r Summary Statistics, echo=TRUE}
+## Summary Statistics
+# A quick summary of statistics for selected variables. Be familiar with the use of ``piping'' %>%.  
+mroz.sum = mroz %>%
+  select(wage, educ, exper, motheduc) %>%      # select variables to summarise
+  summarise_each(list(min = min, 
+                      median = median, 
+                      max = max,
+                      mean = mean, 
+                      var = var,
+                      sd = sd))
+# Display the dimension of an object in R and you shall see 'mroz.sum' is in weird shape, i.e. one long row with values of statistics in columns.
+  dim(mroz.sum)
+
+# Remarks:
+# mroz.sum is a data frame in weird shape. However, please note that the original data set 'mroz' is in normal wide form. 
+# Firstly use gather function to collect values of statistics in to rows. 
+# Now mroz.sum is in "long-form", then use spread function in tidyr to change it to "wide-form". In many occassions, you need to
+# Wrangle the original data set into different forms to perform different analyses. I recommend you run line by line to see what changes have been made.
+mroz.sumstats = mroz.sum %>% gather(stats, value) %>%
+  separate(stats, into = c("Var", "Stats"), sep = "_") %>%
+  spread(Stats, value) %>%
+  select(Var, min, median, max, mean, var, sd) # reorder columns
+# Print an object in R
+  print(mroz.sumstats) 
+
+  
+## Data Scatterplot
+# A simple scatter plot between two variables
+  plot(mroz$hours, mroz$wage, main="Simple Scatterplot of wage vs. hours", 
+     xlab="Working Hours", ylab="Wage")
+
+# Remarks:
+# Note that plot(x, y): first argument x appears on horizontal axe and second argument y appears on vertical axe.
+# Things you need to check here:
+# 1. Relationship between y and x in the sample; if linear, quadratic, etc.?
+# 2. Any outlier? If so, what happens to those outliers. WARNING: Never simply delete those outliers from the data and your analysis. 
+#    Interesting stuffs might exactly take place in those outliers.
+
+
+  
+  
+#### Main Analysis A- Simple Linear Regression ####
+
+## OLS Linear Regression
+# Running a simple linear regression using Ordinary Least Square (OLS).
+  fit_wh = lm(wage ~ hours, mroz) 
+# Display regression output.
+  summary(fit_wh) 
+# Display the 95% confidence intervals
+  confint(fit_wh)
+# Add the fitted line over the scatter plot
+  abline(fit_wh, col = 'red')
+# Add a formula to top right of the plot. paste() converts and concatenates strings together.
+  text(par("usr")[2], par("usr")[4], adj = c(1.1,1.5), labels=paste(terms(fit_wh)[[2]], '=', round(coef(fit_wh)[[1]], 6), 
+                                                                    '+', round(coef(fit_wh)[[2]],6), '*', terms(fit_wh)[[3]]), col = 'blue')
+## Demystify Regression: OLS
+# Compute b_0 and b_1 manually 
+  b1_byhand = cov(mroz$wage, mroz$hours)/var(mroz$hours)
+  b0_byhand = mean(mroz$wage) - b1_byhand*mean(mroz$hours)
+  print(c(b0_byhand, b1_byhand))
+# Display the regression output on coeff again
+  print(summary(fit_wh)$coeff)
+# Compute confidence interval (CI) for slope manually
+  c(coef(fit_wh)[[2]] - qt(1-0.05/2, nobs(fit_wh) - 1 - 1)*coef(summary(fit_wh))[2, "Std. Error"], coef(fit_wh)[[2]] 
+    + qt(1-0.05/2, nobs(fit_wh) - 1 - 1)*coef(summary(fit_wh))[2, "Std. Error"])
+  confint(fit_wh)
+  
+## Analysis of Variance in Linear Regression (ANOVA)
+# Generate ANOVA table after fitting 
+  anova_wh = aov(fit_wh)
+  print(summary(anova_wh))
+# Compute the SST manually, i.e. total sum of squares
+  SST_wh = var(mroz$wage)*(nrow(mroz) - 1)
+# Verify that SST = SSM + SSR; where SSM is sum of squares model and SSR is sum of squared residuals; retrieve SSM and SSR from the summary(anova) list.
+  SSM_wh = summary(anova_wh)[[1]]$'Sum Sq'[1]
+  SSR_wh = summary(anova_wh)[[1]]$'Sum Sq'[2]
+  print(c(SST_wh, SSM_wh + SSR_wh))
+# Verify that Rsq = SSM/SST
+  Rsq_wh = summary(fit_wh)$r.square
+  print(c(Rsq_wh, SSM_wh/SST_wh))
+# Verify that F-statistics = MSM/MSR, i.e. mean squared model/mean squared residuals
+  Fstat_wh = summary(anova_wh)[[1]]$'F value'[1]
+  MSM_wh = summary(anova_wh)[[1]]$'Mean Sq'[1]
+  MSR_wh = summary(anova_wh)[[1]]$'Mean Sq'[2]
+  print(c(Fstat_wh, MSM_wh/MSR_wh))
+# Produce a combined regression output with ANOVA table
+  print(list(summary(fit_wh), summary(anova_wh)))
+  
+# Another quick example of simple linear regression and its output
+  data(freeny)
+  fit_yp = lm(y ~ price.index, data = freeny)
+  anova_yp = aov(fit_yp)
+  print(list(summary(fit_yp), summary(anova_yp)))
+# Fitted line on the scatter plot
+  plot(freeny$price.index, freeny$y, main="Freeny Quarterly Sales vs. Price", 
+       xlab="price.index", ylab="quarterly sale")
+  abline(fit_yp, col = 'red')
+# Save the plot as an PDF file (high-quality image since it is vector image)
+  pdf("plotline_salesprice.pdf", width=5, height=4)
+  mar <- par("mar")
+  mar = c(4,4,2,2)
+  par(mar = mar)
+  plot(freeny$price.index, freeny$y, main="Freeny Quarterly Sales vs. Price", 
+       xlab="price.index", ylab="quarterly sale")
+  abline(fit_yp, col = 'red')
+  dev.off()
+  
+## Residual Plot and Checking Assumptions of Linear Regression (Residual Diagnostics)
+# Pass the residuals of linear regression fitting wage ~ hours in the output (a list called 'Residuals' in 'fit_wh') to variable 'resid_wh'.
+  resid_wh = resid(fit_wh) 
+# Residual plot of resid_wh vs. hours.
+  plot(mroz$hours, resid_wh,main="Residual Plot of resid_wh vs. hours", 
+       xlab="Working Hours", ylab="Residuals")
+# Add the horizon line at 0 to the residual plot.
+  abline(0,0)
+# An alternative for residual plot. The following gives plot of standardized residual against fitted values y_hat.
+# 'plot' function can be used for an lm object, here 'fit_wh' directly. There are total six charts. We mainly use residual plot and Q-Q plot.
+  plot(fit_wh, 1)
+  
+# Remarks:
+# For residual plot after regression fitting, we usually plot "residuals against X" or "residuals against Fitted values y_hat".
+# Things you should check here:
+# 1. Mean-zero error. If residual plot scatters around y = 0 horizontal line?
+# 2. Homoscedasticity. If any fan-shape residual plot?
+# 3. Independently distributed error. If random-looking residual pattern?
+# 4. Normally distributed error. ---> Q-Q Plot 
+# 5. Linearity assumption between y and x; Reinforcing your finding for plot y vs. x.
+  
+# Use Q-Q plot to test normally distributed error assumption. A normally looking sample data should scatter along the 45 degree line.
+  plot(fit_wh, 2)
+```
+
+## Main Analysis B - Multivariate Linear Regression Model
+### Running a Multivariate Linear Regression
+```{r Multivariate Linear Regression, echo=TRUE}
+# Similar to simple linear regression, use function 'lm()'. Now with more independent variables X's, y ~ x_1 + x_2 + ...
+  fit_w = lm(wage ~ hours + educ + exper + expersq + city, mroz)
+# Display the multivariate regression output
+  summary(fit_w)
+```
+
+### Analysis of Variance in Linear Regression (ANOVA)
+```{r ANOVA part b, echo=TRUE}
+# Generate ANOVA table after fitting 
+  anova_w = aov(fit_w)
+  print(summary(anova_w))
+```
+
+### Running Residual Diagnostics
+```{r Residual Diagnostics, echo=TRUE}
+  plot(fit_w, which = c(1,2), caption = list("Resid vs. Fitted", "Normal Q-Q"))
+```
+
+### Running a Multivariate Linear Regression with Standardized coefficients.
+```{r Multivariate Linear Regression with Standardized coefficients, echo=TRUE}
+  fit_ws = lm(scale(wage) ~ scale(hours) + scale(educ) + scale(exper) + scale(expersq) + scale(city), mroz)
+  summary(fit_ws)
+# Quite clumsy variable names, we could alternatively, apply 'scale' to all variable in the data set and then call 'lm'.
+# The model to be fitted is 'wage ~ wage ~ hours + educ + age + exper + expersq'. function 'all.vars' gives a vector of variable names.
+  fit_formula = wage ~ hours + educ + exper + expersq + city
+  all.vars(fit_formula)
+# Use function 'lapply' to 'scale' this subset of data with variable names in 'all.vars()'.
+  mroz_s = lapply(mroz[ , all.vars(fit_formula)], scale)
+  fit_ws_alter = lm(wage ~ hours + educ + exper + expersq + city, mroz_s)
+# Now you could compare the following output with the regression output of 'fit_ws'.
+  summary(fit_ws_alter)
+```
+
+### Prediction with Linear Regression
+```{r Prediction with Linear Regression, echo=TRUE}
+# Suppose we have the new data points about womem labor demographics
+  new.mroz = data.frame(hours = c(2167, 975, 1790), educ = c(15, 11, 12), exper = c(12, 8, 3), expersq = c(12^2, 8^2, 3^2), city = c(1,0,1))
+# Predict the wage using predict() function
+  pred.fit_w = predict(fit_w, newdata = new.mroz, interval = "prediction")
+  predci.fit_w = predict(fit_w, newdata = new.mroz, interval = "confidence")
+  print(pred.fit_w)
+  print(predci.fit_w)
+  print(cbind(predci.fit_w, pred.fit_w))
+```
+  
+The most basic plot() function is used throughout this R script. You are free to use other plotting packages 
+AS LONG AS deliver the required result in assignment and practical assessment. Be sure to use robust and bug-free 
+packages. ggplot and ggplot2 are among recommended ones.
+  
+  

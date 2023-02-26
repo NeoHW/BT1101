@@ -1,0 +1,168 @@
+---
+title: 'Tutorial 6: Linear Regression'
+author: 'Neo Haowei, A0264683U'
+date: 'Due by October 10, 8:00 AM'
+output: html_document
+---
+
+## Preparation
+
+```{r load-libraries, echo=TRUE, message=FALSE, warning=FALSE}
+# load required packages, for general use
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(knitr)
+library(psych)
+```
+
+## Part Two: Assignment Submission 
+
+### Tutorial Question 3 (Total 20 points)
+
+For this tutorial question, you are set to explain infidelity in marriage and the likelihood of having an affair using an interesting data set.  
+
+- Dataset required: `data(affairs)` in `wooldridge` package. 
+- There are many publicly available data sets to play with in the textbook of `Introduction to Econometrics` by Jeffrey Wooldridge. We'll use those real world data sets (usually random subset of the original data set) quite often in this course. 
+
+```{r q3-prep, echo=TRUE}
+# install.packages('wooldridge') 
+# Load the library 
+library(wooldridge)
+# Load the dataset `affairs`
+data(affairs)
+# Take a quick look at the first 10 rows of data
+head(affairs)
+d1<- affairs
+```
+- The data set `affaris` contains 601 observations of 19 variables on individual's demographic information, self-ratings and event of having and affair. The description of variables is the following:
+
+  + id: identifier
+  + male: =1 if male
+  + age: in years
+  + yrsmarr: years married
+  + kids: =1 if have kids
+  + relig: 5 = very relig., 4 = somewhat, 3 = slightly, 2 = not at all, 1 = anti
+  + educ: years schooling
+  + occup: occupation, Hollingshead scale^[Hollingshead scale measures the socialeconomic status with larger number indicating higher social-economic status. [Occupational prestige Wiki](https://en.wikipedia.org/wiki/Occupational_prestige). ]
+  + ratemarr: 5 = vry hap marr, 4 = hap than avg, 3 = avg, 2 = smewht unhap, 1 = vry unhap
+  + naffairs: number of affairs within last year
+  + affair: =1 if had at least one affair
+  + vryhap: ratemarr == 5
+  + hapavg: ratemarr == 4
+  + avgmarr: ratemarr == 3
+  + unhap: ratemarr == 2
+  + vryrel: relig == 5
+  + smerel: relig == 4
+  + slghtrel: relig == 3
+  + notrel: relig == 2
+  
+(3a) Firstly, let's look at what contributes to the number of affairs during marriage. People believe that infidelity in marriage is associated with gender, age, years of marriage, if having kids together, income level or social-economic status, if religious, and if happily married. Run a multivariate linear regression model of `naffairs` on `male`, `age`, `yrsmarr`, `kids`,  `occup`, `relig`, and `ratemarr` and report the regression result. (1 point) 
+
+Answer the following questions *directly based on the regression output*:
+
+- Interpret the coefficient of `relig`. Does having being religious affect the number of affairs in marriage? Why or why not? (2 points)
+- Interpret the coefficient of `yrsmarr`. Does years of marriage affect the number of affairs in marriage? Why or why not? (2 points)
+- What's the marginal effect of `ratemarr` and how do you interpret the coefficient of `ratemarr`? (1 point)
+
+Note: use the original `ratemarr` provided in the data for this question, as a numeric variable. 
+
+```{r q3a, echo=TRUE}
+## Change binary int variables to factor variables with labels
+#d1$male_fac = factor(d1$male)
+#d1$kids_fac = factor(d1$kids)
+#summary(lm(naffairs ~ male_fac + age + yrsmarr + kids_fac + occup + relig + ratemarr, d1))
+## Looks like there is no difference when using factor or binary numeric variable
+
+summary(lm(naffairs ~ male + age + yrsmarr + kids + occup + relig + ratemarr, d1))
+# check for normality needed?
+```
+
+<p style="color:darkred">
+Coefficient of `relig` = -0.47642. Every unit increase of how religious a person is decreases the average number of affairs during marriage by 0.47642 given all other predictors constant.  
+The p-value=2.25e-05 is very small,(< 0.05), thus we have sufficient evidence to reject the null hypothesis that the intercept is 0 and conclude that the slope parameter is statistically significant at the 5% level of confidence.  
+<br>
+Coefficient of `yrsmarr` = 0.16947. Every unit increase number of years married increases the average number of affairs during marriage by 0.16947 given all other predictors constant.   
+The p-value=4.43e-05 is very small,(< 0.05), thus we have sufficient evidence to reject the null hypothesis that the intercept is 0 and conclude that the slope parameter is statistically significant at the 5% level of confidence.  
+<br>
+Coefficient of `ratemarr` = -0.71544. Every unit increase of how happy a person is in the marriage decreases the average number of affairs during marriage by 0.71544 given all other predictors constant.   
+The p-value=2.98e-09 is very small,(< 0.05), thus we have sufficient evidence to reject the null hypothesis that the intercept is 0 and conclude that the slope parameter is statistically significant at the 5% level of confidence.  
+</p>
+
+
+(3b) Observe that `ratemarr` is an example of likert rating which is a categorical variable.^[It is actually slightly different from *nominal categorical variable* we saw in class such as `weather` which takes three possible values of `sunny`, `cloudy`, `rainy`. We call `ratemarr` an **ordinal categorical variable** since there is an intrinsic ordering in the values of `ratemarr`, i.e. `vry hap`(5) > `hap than avg`(4) > `avg`(3) > `smewht unhap`(2) > `vry unhap`(1) but the difference between adjacent values has no meaning. However, we'll still use `factormarr` as nominal categorical variable instead of ordinal categorical one, as we code `order=FALSE` as shown in the codechunk. In previous question (3a), we actually treat `ratemarr` as an integer-valued continuous variable where difference of two nearby values means something. In order to fix this issue, let's use `level()` function in R to convert a numeric variable `ratemarr` into an a categorical variable or factor variable in R.
+
+Now re-run and report the linear regression model in previous question with `ratemarr` and `relig` replaced by `factormarr` and `factorrelig`, respectively. (1 point) 
+
+- What is the marginal effect on number of affairs when rating jumps from `vry unhap` to `smewht unhap`; and from `hap than avg` to `vry hap`? (2 points) 
+- What's the difference of marginal effect of marriage happiness rating on number of affairs between an integer-valued `ratemarr`  and factor variable `factormarr`? (1 point)
+
+```{r q3b-prep, echo=TRUE}
+# use level function to manually recode `ratemarr` into factor variable.
+d1$factormarr = factor(affairs$ratemarr, labels = c('vry unhap', 'smewht unhap', 'avg', 'hap than avg', 'vry hap'), order = FALSE)
+# similarly, `relig` should also be recoded. 
+d1$factorrelig = factor(affairs$relig, labels = c('anti', 'not at all', 'slightly', 'somewhat', 'vry relig'), order = FALSE)
+
+summary(lm(naffairs ~ male + age + yrsmarr + kids + occup + factorrelig + factormarr, d1))
+
+
+# Note:
+# When one includes a categorical variable of k-level, i.e. factor in R, R will automatically generate k−1 dummies in the regression model, leaving out one reference level. If such categorical variable has an order, generated dummies follow the natural order and the reference level is usually the lowest level. We can use relevel() function in R to set the reference level.
+```
+
+
+<p style="color:darkred">
+From `vry unhap` to `smewht unhap`:  
+The marginal effect of marriage rating from `vry unhap` to `smewht unhap` is 0.27810.  
+However, p-value=0.746200 > 0.05, thus we do not have sufficient evidence to reject the null hypothesis that the coefficient is 0. Therefore, the coefficient is statistically insignificant at the 5% level of confidence.  
+<br>
+From `hap than avg` to `vry hap`:  
+The marginal effect of marriage rating from `hap than avg` to `vry hap` results in a -2.58116-(-2.24427) = -0.33689.  
+`hap than avg` p-value=0.005514 < 0.05, thus we have sufficient evidence to reject the null hypothesis that the intercept is 0 and conclude that the slope parameter is statistically significant at the 5% level of confidence.  
+`vry hap` p-value=0.001472 < 0.05, thus we have sufficient evidence to reject the null hypothesis that the intercept is 0 and conclude that the slope parameter is statistically significant at the 5% level of confidence.  
+<br>
+Difference of marginal effect of marriage happiness rating on number of affairs between an integer-valued `ratemarr`  and factor variable `factormarr`:  
+In the case of this model, for integer-valued `ratemarr`, jumping from adjacent levels shares exactly the same marginal effect on number of affairs.  
+For factor variable `factormarr`, jumping from adjacent levels have separate marginal effect.  
+</p>
+
+
+(3c) It might be interesting to see if there is any inverse U-shaped (marginal) relationship between years of marriage and infidelity in marriage. Fit a multivariate linear regression of `naffairs` on `male`, `age`, `yrsmarr`, `yrsmarrsq`, `kids`,  `occup`, `factorelig`, and `factormarr` (1 point) , where `yrsmarrsq` is the square of `yrsmarr`.
+
+- Interpret the coefficient before `male`. (2 points)
+- What's the marginal effect of years of marriage of having an affair? Write out the formula for this marginal effect. Compute the marginal effect when `yrsmarr = 7`? (2 points)
+- Based on the regression output, is there any evidence in the data supporting such inverse U-shaped relationship between years of marriage and number of affairs in marriage? (1 point)
+```{r q3c-prep, echo=TRUE}
+# `yrsmarrsq` is the square of `yrsmarr`
+d1$yrsmarrsq = d1$yrsmarr^2
+
+# Fitting multivariate linear regression 
+# To check if infidelity in marriage, use variable `affair` where affairs=1 means at least one affair
+fit_a<-lm(naffairs ~ male + age + yrsmarr + yrsmarrsq + kids + occup + factorrelig + factormarr, d1)
+summary(fit_a)
+```
+
+<p style="color:darkred">
+Coefficient of `male` = 0.065418. If the person is a male, the number of affairs during marriage increases by 0.065418 on average given all other predictors constant.    
+However, p-value=0.824414(> 0.05), we cannot reject the null hypothesis that this slope parameter is = 0, i.e., the coefficient is not significantly different from zero.  
+<br>
+Marginal effect of years of marriage of having an affair is 0.289678. For every unit increase in years of marriage, the number of affairs during marriage increases by 0.289678 on average given all other predictors constant.    
+Moreover, The p-value=0.016570(< 0.05), thus we can reject the null hypothesis that this slope parameter is = 0, i.e., the coefficient is significantly different from zero.  
+Since we are only concerned when yrsmarr = 7, ceteris paribus, we will consider both yrsmarr and yrsmarrsq in our linear regression model.  
+The formula for the marginal effect of years of marriage of having an affair is 4.446698 + 0.289678yrsmarr + -0.007020yrsmarr^2.  
+Taking the first derivative of affairs with respect to yrsmarr and substituting yrsmarr = 7, the marginal effect = 0.289678 - 2(0.007020(7)) = 0.191398.
+<br>
+Based on the data, the p value for yrsmarrsq is 0.297817,(> 0.05), hence we have insufficient evidence to conclude that it is a U-shaped relationship between the years of marriage and number of affairs in a marriage, which implies it does not support a y against x square graph. Hence, we cannot conclude that it has a U-shaped graph.
+</p>
+
+(3d) Using your fitted linear regression model in (3c), predict the number of affairs in marriage for a very religious 56 year-old father who has a prestigious job (i.e. `occup = 6`) and is very happily married for 22 years. (3 points) 
+```{r q3d, echo=TRUE}
+newPerson = data.frame(male = 1, age = 56, yrsmarr = 22, yrsmarrsq = 22**2, kids = 1, factorrelig = "vry relig", occup = 6, factormarr = "vry hap")
+predict(fit_a, newdata = newPerson)
+```
+<p style="color:darkred">
+The number of affairs in marriage for a very religious 56 year-old father who has a prestigious job (i.e. `occup = 6`) and is very happily married for 22 years is 0.5891839.  
+</p>
+
+
+(3e) Successfully debug Rmarkdown and produce an HTML for submission. (1 point)
